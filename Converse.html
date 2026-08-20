@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOOD RESEARCH // LOBBY CONVERSE</title>
+    <!-- Import Retro Pixel Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <!-- PeerJS WebRTC Library for Audio Streaming -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Press Start 2P', monospace;
+            image-rendering: pixelated;
+        }
+
+        body {
+            background-color: #0b0c10;
+            color: #ffffff;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            user-select: none;
+        }
+
+        #custom-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -2;
+            background-image: url('https://cdn.corenexis.com/f/L5RXv5NaYUX.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: brightness(0.6) contrast(1.2);
+        }
+
+        #canvas-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.4;
+            transition: opacity 0.4s ease;
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1000;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.35) 50%
+            );
+            background-size: 100% 4px;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 8%;
+            background: rgba(0, 0, 0, 0.9);
+            border-bottom: 4px solid #ffe600;
+            position: relative;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.4rem;
+            color: #ffffff;
+            text-shadow: 2px 2px #ffe600;
+        }
+
+        .logo span {
+            color: #ffe600;
+            text-shadow: 2px 2px #e60073;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: 0.1s;
+            text-transform: uppercase;
+        }
+
+        .nav-links a:hover {
+            color: #ffe600;
+            text-shadow: 2px 2px #e60073;
+        }
+
+        .hero {
+            height: calc(100vh - 80px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0 20px;
+            position: relative;
+            transition: opacity 0.4s ease;
+        }
+
+        .hero-badge {
+            background: #ffe600;
+            color: #000000;
+            padding: 10px 16px;
+            font-size: 0.65rem;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0px #e60073;
+        }
+
+        .hero h1 {
+            font-size: 2.2rem;
+            line-height: 1.5;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            color: #ffffff;
+            text-shadow: 4px 4px 0px #ffe600, 8px 8px 0px #e60073;
+        }
+
+        .hero p {
+            max-width: 650px;
+            font-size: 0.8rem;
+            color: #dddddd;
+            margin-bottom: 40px;
+            line-height: 1.8;
+            text-shadow: 2px 2px #000000;
+        }
+
+        .cta-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .btn-converse {
+            padding: 16px 28px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            border: none;
+            cursor: pointer;
+            background: #ffe600;
+            color: #000000;
+            box-shadow: 4px 4px 0px #ffffff;
+            text-decoration: none;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 0px;
+        }
+
+        .btn-converse:hover {
+            background: #ffffff;
+            color: #000000;
+            box-shadow: 4px 4px 0px #ffe600;
+        }
+
+        #worldCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 50;
+            display: none;
+            cursor: grab;
+        }
+
+        #worldCanvas:active {
+            cursor: grabbing;
+        }
+
+        .chat-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 650px;
+            background: #000000;
+            border: 3px solid #00c4d4;
+            box-shadow: 4px 4px 0px #e60073;
+            display: none;
+            padding: 8px 12px;
+            z-index: 200;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #ffffff;
+            font-size: 0.65rem;
+            padding: 8px;
+        }
+
+        .send-btn, .mic-btn, .reset-btn {
+            background: #ffe600;
+            border: 2px solid #ffffff;
+            color: #000000;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55rem;
+        }
+
+        .send-btn:hover, .mic-btn:hover, .reset-btn:hover {
+            background: #ffffff;
+        }
+
+        .mic-btn.active {
+            background: #00c4d4;
+            color: #000000;
+            box-shadow: 0 0 10px #00c4d4;
+        }
+
+        .send-btn svg, .mic-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        .leave-btn {
+            background: #e60073;
+            border: 2px solid #ffffff;
+            color: #ffffff;
+            padding: 8px 12px;
+            font-size: 0.6rem;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .leave-btn:hover {
+            background: #ff0055;
+        }
+
+        .speech-bubble {
+            position: fixed;
+            background: #ffffff;
+            color: #000000;
+            border: 3px solid #000000;
+            padding: 8px 12px;
+            font-size: 0.6rem;
+            line-height: 1.4;
+            max-width: 180px;
+            word-wrap: break-word;
+            z-index: 150;
+            pointer-events: none;
+            box-shadow: 3px 3px 0px #00c4d4;
+            transform: translate(-50%, -100%);
+            animation: bubblePop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 8px 6px 0;
+            border-style: solid;
+            border-color: #ffffff transparent;
+            display: block;
+            width: 0;
+        }
+
+        @keyframes bubblePop {
+            0% { transform: translate(-50%, -80%) scale(0.5); opacity: 0; }
+            100% { transform: translate(-50%, -100%) scale(1); opacity: 1; }
+        }
+
+        #cloudOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 2000;
+            pointer-events: none;
+            display: none;
+        }
+
+        .cloud-block {
+            position: absolute;
+            background: #ffffff;
+            box-shadow: inset -6px -6px 0px #d0d0d0, 6px 6px 0px #000000;
+            transition: transform 0.5s cubic-bezier(0.77, 0, 0.175, 1);
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 1.4rem; }
+            .hero p { font-size: 0.65rem; }
+            .nav-links { display: none; }
+            .cta-group { width: 100%; max-width: 280px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="custom-bg"></div>
+    <div class="scanlines"></div>
+    <canvas id="canvas-bg"></canvas>
+    <canvas id="worldCanvas"></canvas>
+    <div id="cloudOverlay"></div>
+    <div id="audioContainer" style="display:none;"></div>
+
+    <nav>
+        <div class="logo">HOOD<span>.DEPT</span></div>
+        <ul class="nav-links">
+            <li><a href="character.html" class="leave-nav">Character</a></li>
+            <li><a href="General.html" class="leave-nav">Global</a></li>
+            <li><a href="Chat.html" class="leave-nav">Chat</a></li>
+            <li><a href="index.html" class="leave-nav" id="backBtn">Back</a></li>
+        </ul>
+    </nav>
+
+    <section class="hero" id="heroSection">
+        <div class="hero-badge">Welcome to the Hood Research Department Website</div>
+        <h1>The Lobby<br></h1>
+        <p>Play, Catch Up, and Hangout with friends online. Discover different characters, and customize your own</p>
+        <div class="cta-group">
+            <button class="btn-converse" id="converseBtn">Enter</button>
+        </div>
+    </section>
+
+    <div class="chat-bar" id="chatBar">
+        <input type="text" class="chat-input" id="chatInput" placeholder="SAY SOMETHING..." maxlength="60">
+        
+        <button class="send-btn" id="sendBtn" title="Send Text">
+            <svg viewBox="0 0 24 24">
+                <path d="M2,21L23,12L2,3V10L17,12L2,14V21Z" />
+            </svg>
+        </button>
+
+        <button class="mic-btn" id="micBtn" title="Toggle Voice Chat">
+            <svg viewBox="0 0 24 24">
+                <path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z" />
+            </svg>
+        </button>
+
+        <button class="reset-btn" id="resetFurnBtn" title="Reset Furniture">RESET FURNITURE</button>
+        <button class="leave-btn" id="leaveBtn">LEAVE</button>
+    </div>
+
+    <div id="bubbleContainer"></div>
+
+    <script>
+        /* --- CLOUD TRANSITION SYSTEM --- */
+        const cloudOverlay = document.getElementById('cloudOverlay');
+        const rows = 5;
+        const cols = 5;
+        const cloudBlocks = [];
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const block = document.createElement('div');
+                block.className = 'cloud-block';
+                block.style.width = `${100 / cols}vw`;
+                block.style.height = `${100 / rows}vh`;
+                block.style.top = `${r * (100 / rows)}vh`;
+                block.style.left = `${c * (100 / cols)}vw`;
+                block.style.transform = 'translateY(-100vh)';
+                cloudOverlay.appendChild(block);
+                cloudBlocks.push({ el: block, row: r, col: c });
+            }
+        }
+
+        function triggerCloudTransition(onMidpoint, onComplete) {
+            cloudOverlay.style.display = 'block';
+
+            cloudBlocks.forEach(b => {
+                const delay = (b.row + b.col) * 50;
+                setTimeout(() => {
+                    b.el.style.transform = 'translateY(0)';
+                }, delay);
+            });
+
+            const totalInTime = (rows + cols) * 50 + 500;
+
+            setTimeout(() => {
+                if (onMidpoint) onMidpoint();
+
+                cloudBlocks.forEach(b => {
+                    const delay = (b.row + b.col) * 50;
+                    setTimeout(() => {
+                        b.el.style.transform = 'translateY(100vh)';
+                    }, delay);
+                });
+
+                setTimeout(() => {
+                    cloudOverlay.style.display = 'none';
+                    cloudBlocks.forEach(b => {
+                        b.el.style.transform = 'translateY(-100vh)';
+                    });
+                    if (onComplete) onComplete();
+                }, totalInTime);
+
+            }, totalInTime);
+        }
+
+        /* --- AMBIENT PARTICLES --- */
+        const bgCanvas = document.getElementById('canvas-bg');
+        const bgCtx = bgCanvas.getContext('2d');
+        const PIXEL_SCALE = 4;
+        let bgWidth = bgCanvas.width = Math.floor(window.innerWidth / PIXEL_SCALE);
+        let bgHeight = bgCanvas.height = Math.floor(window.innerHeight / PIXEL_SCALE);
+
+        window.addEventListener('resize', () => {
+            bgWidth = bgCanvas.width = Math.floor(window.innerWidth / PIXEL_SCALE);
+            bgHeight = bgCanvas.height = Math.floor(window.innerHeight / PIXEL_SCALE);
+            worldCanvas.width = window.innerWidth;
+            worldCanvas.height = window.innerHeight;
+        });
+
+        const colors = ['#e60073', '#00c4d4', '#ffe600', '#9b22e6', '#e65300'];
+        const shapes = Array.from({ length: 25 }, () => ({
+            x: Math.random() * bgWidth,
+            y: Math.random() * bgHeight,
+            size: Math.floor(Math.random() * 6 + 4),
+            color: colors[Math.floor(Math.random() * colors.length)],
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.3
+        }));
+
+        function animateBG() {
+            bgCtx.clearRect(0, 0, bgWidth, bgHeight);
+            shapes.forEach(s => {
+                s.x += s.vx; s.y += s.vy;
+                if (s.x < 0 || s.x > bgWidth) s.vx *= -1;
+                if (s.y < 0 || s.y > bgHeight) s.vy *= -1;
+                bgCtx.fillStyle = s.color;
+                bgCtx.fillRect(Math.floor(s.x) - s.size/2, Math.floor(s.y) - s.size/2, s.size, s.size);
+            });
+            requestAnimationFrame(animateBG);
+        }
+        animateBG();
+
+        /* --- MULTIPLAYER BROADCAST CHANNEL --- */
+        const lobbyChannel = new BroadcastChannel('hood_lobby_network');
+        const mySessionId = 'usr' + Math.random().toString(36).substr(2, 8);
+        let activeLobby = false;
+
+        const defaultProfile = {
+            name: 'OPERATIVE',
+            gender: 'masc',
+            skinColor: '#f1c27d',
+            hairStyle: 'short',
+            hairColor: '#3d2314',
+            shirtColor: '#e60073',
+            bottomType: 'pants',
+            bottomColor: '#00c4d4'
+        };
+
+        const localSaved = localStorage.getItem('hoodAvatar');
+        const userProfile = localSaved ? JSON.parse(localSaved) : defaultProfile;
+
+        /* --- FURNITURE SYSTEM WITH PERSISTENCE --- */
+        const FURNITURE_DEFS = [
+            { id: 'f1', type: 'sofa', name: 'Red Sofa', action: 'sit', width: 90, height: 45, color: '#e60073', subColor: '#99004d' },
+            { id: 'f2', type: 'sofa', name: 'Leather Sofa', action: 'sit', width: 90, height: 45, color: '#6e3b12', subColor: '#422209' },
+            { id: 'f3', type: 'sofa', name: 'Cyber Couch', action: 'sit', width: 100, height: 45, color: '#00c4d4', subColor: '#006670' },
+            { id: 'f4', type: 'chair', name: 'Gaming Chair', action: 'sit', width: 40, height: 45, color: '#ffe600', subColor: '#998a00' },
+            { id: 'f5', type: 'chair', name: 'Wooden Chair', action: 'sit', width: 35, height: 40, color: '#a86232', subColor: '#5c3316' },
+            { id: 'f6', type: 'chair', name: 'Office Chair', action: 'sit', width: 40, height: 45, color: '#333333', subColor: '#111111' },
+            { id: 'f7', type: 'bed', name: 'Single Bed', action: 'lay', width: 70, height: 100, color: '#ffffff', subColor: '#00c4d4' },
+            { id: 'f8', type: 'bed', name: 'Double Bed', action: 'lay', width: 110, height: 100, color: '#ffe600', subColor: '#e60073' },
+            { id: 'f9', type: 'sofa', name: 'Pixel Bench', action: 'sit', width: 80, height: 35, color: '#555555', subColor: '#222222' },
+            { id: 'f10', type: 'chair', name: 'Beanbag', action: 'sit', width: 50, height: 45, color: '#9b22e6', subColor: '#5a1287' }
+        ];
+
+        let furnitureList = [];
+
+        function initFurniture() {
+            const savedPositions = localStorage.getItem('hoodFurniturePositions');
+            let parsedSaved = null;
+            if (savedPositions) {
+                try { parsedSaved = JSON.parse(savedPositions); } catch(e){}
+            }
+
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+
+            const defaultPositions = [
+                { id: 'f1', x: centerX - 250, y: centerY - 100 },
+                { id: 'f2', x: centerX + 150, y: centerY - 100 },
+                { id: 'f3', x: centerX - 250, y: centerY + 120 },
+                { id: 'f4', x: centerX - 120, y: centerY - 150 },
+                { id: 'f5', x: centerX + 40, y: centerY - 150 },
+                { id: 'f6', x: centerX + 200, y: centerY + 120 },
+                { id: 'f7', x: centerX - 350, y: centerY },
+                { id: 'f8', x: centerX + 280, y: centerY },
+                { id: 'f9', x: centerX - 50, y: centerY + 160 },
+                { id: 'f10', x: centerX + 80, y: centerY + 160 }
+            ];
+
+            furnitureList = FURNITURE_DEFS.map(def => {
+                const saved = parsedSaved ? parsedSaved.find(s => s.id === def.id) : null;
+                const defPos = defaultPositions.find(p => p.id === def.id);
+                return {
+                    ...def,
+                    x: saved ? saved.x : (defPos ? defPos.x : centerX),
+                    y: saved ? saved.y : (defPos ? defPos.y : centerY)
+                };
+            });
+        }
+
+        function saveFurniturePositions() {
+            const posData = furnitureList.map(f => ({ id: f.id, x: f.x, y: f.y }));
+            localStorage.setItem('hoodFurniturePositions', JSON.stringify(posData));
+            if (activeLobby) {
+                lobbyChannel.postMessage({ type: 'FURNITURE_SYNC', furniture: posData });
+            }
+        }
+
+        document.getElementById('resetFurnBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            localStorage.removeItem('hoodFurniturePositions');
+            initFurniture();
+            saveFurniturePositions();
+        });
+
+        /* --- PREVENT CLICKING IN CHAT BAR FROM MOVING CHARACTER --- */
+        const chatBarEl = document.getElementById('chatBar');
+        ['mousedown', 'touchstart', 'click'].forEach(evt => {
+            chatBarEl.addEventListener(evt, (e) => {
+                e.stopPropagation();
+            });
+        });
+
+        /* --- DRAGGING LOGIC --- */
+        let draggedFurniture = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        function getPointerPos(e) {
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function handlePointerDown(e) {
+            if (!activeLobby) return;
+            const pos = getPointerPos(e);
+            
+            // Check furniture click top to bottom
+            for (let i = furnitureList.length - 1; i >= 0; i--) {
+                const f = furnitureList[i];
+                const halfW = f.width / 2;
+                const halfH = f.height / 2;
+                if (pos.x >= f.x - halfW && pos.x <= f.x + halfW &&
+                    pos.y >= f.y - halfH && pos.y <= f.y + halfH) {
+                    draggedFurniture = f;
+                    dragOffsetX = pos.x - f.x;
+                    dragOffsetY = pos.y - f.y;
+                    e.preventDefault();
+                    return;
+                }
+            }
+
+            // If not clicking furniture, move local player
+            if (localPlayer) {
+                localPlayer.targetX = pos.x;
+                localPlayer.targetY = pos.y;
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (draggedFurniture) {
+                const pos = getPointerPos(e);
+                draggedFurniture.x = pos.x - dragOffsetX;
+                draggedFurniture.y = pos.y - dragOffsetY;
+                e.preventDefault();
+            }
+        }
+
+        function handlePointerUp() {
+            if (draggedFurniture) {
+                draggedFurniture = null;
+                saveFurniturePositions();
+            }
+        }
+
+        window.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        window.addEventListener('touchstart', handlePointerDown, { passive: false });
+        window.addEventListener('touchmove', handlePointerMove, { passive: false });
+        window.addEventListener('touchend', handlePointerUp);
+
+        /* --- DRAW FURNITURE --- */
+        function drawFurnitureItem(f) {
+            wCtx.save();
+            const x = f.x - f.width / 2;
+            const y = f.y - f.height / 2;
+
+            // Shadow
+            wCtx.fillStyle = 'rgba(0,0,0,0.3)';
+            wCtx.fillRect(x + 4, y + f.height - 4, f.width, 8);
+
+            if (f.type === 'sofa') {
+                // Main base
+                wCtx.fillStyle = f.color;
+                wCtx.fillRect(x, y + 10, f.width, f.height - 10);
+                // Backrest
+                wCtx.fillStyle = f.subColor;
+                wCtx.fillRect(x, y, f.width, 14);
+                // Armrests
+                wCtx.fillStyle = f.subColor;
+                wCtx.fillRect(x, y + 10, 10, f.height - 10);
+                wCtx.fillRect(x + f.width - 10, y + 10, 10, f.height - 10);
+                // Cushion lines
+                wCtx.strokeStyle = 'rgba(0,0,0,0.2)';
+                wCtx.lineWidth = 2;
+                wCtx.beginPath();
+                wCtx.moveTo(x + f.width/2, y + 14);
+                wCtx.lineTo(x + f.width/2, y + f.height);
+                wCtx.stroke();
+            } else if (f.type === 'chair') {
+                // Main seat
+                wCtx.fillStyle = f.color;
+                wCtx.fillRect(x + 4, y + 12, f.width - 8, f.height - 16);
+                // Backrest
+                wCtx.fillStyle = f.subColor;
+                wCtx.fillRect(x + 4, y, f.width - 8, 12);
+                // Legs
+                wCtx.fillStyle = '#111111';
+                wCtx.fillRect(x + 6, y + f.height - 6, 4, 6);
+                wCtx.fillRect(x + f.width - 10, y + f.height - 6, 4, 6);
+            } else if (f.type === 'bed') {
+                // Frame
+                wCtx.fillStyle = '#422209';
+                wCtx.fillRect(x, y, f.width, f.height);
+                // Mattress / Sheet
+                wCtx.fillStyle = f.color;
+                wCtx.fillRect(x + 4, y + 15, f.width - 8, f.height - 19);
+                // Pillow
+                wCtx.fillStyle = f.subColor;
+                wCtx.fillRect(x + 8, y + 4, f.width - 16, 16);
+                // Blanket fold edge
+                wCtx.fillStyle = 'rgba(0,0,0,0.1)';
+                wCtx.fillRect(x + 4, y + 35, f.width - 8, 4);
+            }
+
+            // Furniture Name Tag
+            wCtx.fillStyle = '#ffffff';
+            wCtx.font = '6px "Press Start 2P"';
+            wCtx.textAlign = 'center';
+            wCtx.fillText(f.name, f.x, f.y - f.height / 2 - 4);
+
+            wCtx.restore();
+        }
+
+        /* --- AUDIO ANALYZER GLOBALS --- */
+        let audioCtx = null;
+        let analyser = null;
+        let micDataArray = null;
+        let currentAudioVolume = 0;
+
+        /* --- PEERJS WEBRTC REAL VOICE ENGINE --- */
+        let peer = null;
+        const activeCalls = new Map();
+
+        function initPeer() {
+            if (peer) return;
+            peer = new Peer(mySessionId);
+
+            peer.on('call', (call) => {
+                call.answer(localAudioStream);
+                call.on('stream', (remoteStream) => {
+                    playRemoteAudio(call.peer, remoteStream);
+                });
+                activeCalls.set(call.peer, call);
+            });
+        }
+
+        function playRemoteAudio(peerId, stream) {
+            let audioEl = document.getElementById(`audio_${peerId}`);
+            if (!audioEl) {
+                audioEl = document.createElement('audio');
+                audioEl.id = `audio_${peerId}`;
+                audioEl.autoplay = true;
+                document.getElementById('audioContainer').appendChild(audioEl);
+            }
+            audioEl.srcObject = stream;
+        }
+
+        function removeRemoteAudio(peerId) {
+            const audioEl = document.getElementById(`audio_${peerId}`);
+            if (audioEl) audioEl.remove();
+            if (activeCalls.has(peerId)) {
+                activeCalls.get(peerId).close();
+                activeCalls.delete(peerId);
+            }
+        }
+
+        function callAllPeers() {
+            if (!localAudioStream || !peer) return;
+            playersMap.forEach((player, peerId) => {
+                if (peerId !== mySessionId && !activeCalls.has(peerId)) {
+                    const call = peer.call(peerId, localAudioStream);
+                    if (call) {
+                        call.on('stream', (remoteStream) => {
+                            playRemoteAudio(peerId, remoteStream);
+                        });
+                        activeCalls.set(peerId, call);
+                    }
+                }
+            });
+        }
+
+        /* --- PLAYER CLASS WITH ANIMATED WALKING, SITTING & LAYING POSES --- */
+        class Player {
+            constructor(id, x, y, profile, isLocal = false) {
+                this.id = id;
+                this.x = x;
+                this.y = y;
+                this.targetX = x;
+                this.targetY = y;
+                this.profile = profile;
+                this.isLocal = isLocal;
+                this.speed = 4;
+
+                this.isMoving = false;
+                this.facingRight = true;
+                this.animTimer = 0;
+                this.walkFrame = 0;
+                this.audioVolume = 0;
+                this.interactState = null; // 'sit', 'lay', or null
+                this.attachedFurniture = null;
+            }
+
+            update() {
+                const dx = this.targetX - this.x;
+                const dy = this.targetY - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist > this.speed) {
+                    this.isMoving = true;
+                    if (Math.abs(dx) > 0.5) {
+                        this.facingRight = dx > 0;
+                    }
+                    this.x += (dx / dist) * this.speed;
+                    this.y += (dy / dist) * this.speed;
+
+                    this.animTimer++;
+                    if (this.animTimer % 6 === 0) {
+                        this.walkFrame = (this.walkFrame + 1) % 4;
+                    }
+
+                    // Leave furniture state when walking away
+                    this.interactState = null;
+                    this.attachedFurniture = null;
+                } else {
+                    this.x = this.targetX;
+                    this.y = this.targetY;
+                    this.isMoving = false;
+                    this.walkFrame = 0;
+                    this.animTimer = 0;
+
+                    // Check nearest furniture if stationary
+                    this.checkFurnitureInteraction();
+                }
+
+                if (this.isLocal) {
+                    this.audioVolume = currentAudioVolume;
+                }
+            }
+
+            checkFurnitureInteraction() {
+                let nearest = null;
+                let minDist = 40; // Proximity threshold to trigger sit/lay
+
+                furnitureList.forEach(f => {
+                    const d = Math.hypot(this.x - f.x, this.y - f.y);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearest = f;
+                    }
+                });
+
+                if (nearest) {
+                    this.interactState = nearest.action;
+                    this.attachedFurniture = nearest;
+                    // Snap slightly onto furniture
+                    this.x = nearest.x;
+                    this.y = nearest.y + (nearest.action === 'sit' ? 5 : 0);
+                    this.targetX = this.x;
+                    this.targetY = this.y;
+                }
+            }
+
+            drawSoundWave(headTopY) {
+                if (this.audioVolume <= 0.05) return;
+
+                const waveY = headTopY - 18;
+                const barWidth = 3;
+                const barGap = 3;
+                const numBars = 5;
+                const totalWidth = (numBars * barWidth) + ((numBars - 1) * barGap);
+                const startX = this.x - (totalWidth / 2);
+
+                wCtx.save();
+                wCtx.fillStyle = '#00c4d4';
+
+                for (let i = 0; i < numBars; i++) {
+                    const centerFactor = 1 - (Math.abs(i - 2) * 0.25);
+                    const maxHeight = 16;
+                    const calculatedHeight = Math.max(3, Math.min(maxHeight, this.audioVolume * maxHeight * centerFactor * (1.2 + Math.random() * 0.3)));
+                    
+                    const bx = startX + i * (barWidth + barGap);
+                    const by = waveY - (calculatedHeight / 2);
+
+                    wCtx.fillRect(bx, by, barWidth, calculatedHeight);
+                }
+
+                wCtx.restore();
+            }
+
+            draw() {
+                const scale = 3;
+                let charW = 12 * scale;
+                let charH = 35 * scale;
+                
+                // Adjust bounding box height when sitting or laying down
+                if (this.interactState === 'sit') charH = 22 * scale;
+                if (this.interactState === 'lay') charH = 12 * scale;
+
+                const px = this.x - charW / 2;
+                const bounceY = (this.isMoving && (this.walkFrame % 2 === 1)) ? -2 : 0;
+                const py = (this.y - charH) + bounceY;
+
+                wCtx.save();
+                wCtx.imageSmoothingEnabled = false;
+
+                // Shadow
+                wCtx.fillStyle = 'rgba(0,0,0,0.35)';
+                wCtx.beginPath();
+                wCtx.ellipse(this.x, this.y + (this.interactState === 'lay' ? 10 : 0), 16, 6, 0, 0, Math.PI * 2);
+                wCtx.fill();
+
+                if (!this.facingRight && this.interactState !== 'lay') {
+                    wCtx.translate(this.x, 0);
+                    wCtx.scale(-1, 1);
+                    wCtx.translate(-this.x, 0);
+                }
+
+                const rect = (rx, ry, rw, rh, c) => {
+                    wCtx.fillStyle = c;
+                    wCtx.fillRect(px + rx * scale, py + ry * scale, rw * scale, rh * scale);
+                };
+                const p = (rx, ry, c) => rect(rx, ry, 1, 1, c);
+
+                const headW = this.profile.gender === 'fem' ? 6 : 8;
+                const headX = this.profile.gender === 'fem' ? 2 : 1;
+
+                if (this.interactState === 'lay') {
+                    // LAYING DOWN POSE (Horizontal rendering)
+                    rect(0, 2, 8, 6, this.profile.skinColor); // Head
+                    p(2, 4, '#000000'); // Eye
+                    rect(6, 2, 14, 6, this.profile.shirtColor); // Body
+                    rect(20, 2, 10, 5, this.profile.bottomColor); // Legs
+                    // Hair
+                    rect(-1, 1, 4, 8, this.profile.hairColor);
+                } else if (this.interactState === 'sit') {
+                    // SITTING POSE
+                    rect(headX, 0, headW, 8, this.profile.skinColor);
+                    p(headX + 1, 3, '#000000');
+                    p(headX + headW - 2, 3, '#000000');
+
+                    // Torso
+                    rect(1, 8, 8, 8, this.profile.shirtColor);
+                    // Bent Legs forward
+                    rect(1, 16, 10, 4, this.profile.bottomColor);
+                    rect(8, 18, 3, 4, '#111111'); // Boots
+
+                    // Hair
+                    const hc = this.profile.hairColor;
+                    if (this.profile.hairStyle === 'short') rect(headX - 1, -1, headW + 2, 3, hc);
+                    else if (this.profile.hairStyle === 'long') {
+                        rect(headX - 1, -1, headW + 2, 3, hc);
+                        rect(headX - 1, 2, 2, 7, hc);
+                    } else if (this.profile.hairStyle === 'spiky') {
+                        rect(headX, -2, headW, 2, hc);
+                        rect(headX - 1, 0, headW + 2, 2, hc);
+                    }
+                } else {
+                    // NORMAL STANDING / WALKING POSE
+                    let leftLegOffset = 0;
+                    let rightLegOffset = 0;
+                    if (this.isMoving) {
+                        if (this.walkFrame === 1) { leftLegOffset = -3; rightLegOffset = 3; }
+                        else if (this.walkFrame === 3) { leftLegOffset = 3; rightLegOffset = -3; }
+                    }
+
+                    // Head
+                    rect(headX, 0, headW, 8, this.profile.skinColor);
+                    p(headX + 1, 3, '#000000');
+                    p(headX + headW - 2, 3, '#000000');
+
+                    // Legs & Boots
+                    rect(2, 22 + leftLegOffset, 2, 10, this.profile.skinColor);
+                    rect(6, 22 + rightLegOffset, 2, 10, this.profile.skinColor);
+                    rect(1, 31 + leftLegOffset, 3, 3, '#111111');
+                    rect(6, 31 + rightLegOffset, 3, 3, '#111111');
+
+                    // Bottoms
+                    if (this.profile.bottomType === 'pants') {
+                        rect(1, 20, 4, 11 + leftLegOffset, this.profile.bottomColor);
+                        rect(5, 20, 4, 11 + rightLegOffset, this.profile.bottomColor);
+                    } else if (this.profile.bottomType === 'shorts') {
+                        rect(1, 20, 4, 5, this.profile.bottomColor);
+                        rect(5, 20, 4, 5, this.profile.bottomColor);
+                    } else if (this.profile.bottomType === 'dress') {
+                        rect(0, 10, 10, 14, this.profile.bottomColor);
+                    }
+
+                    // Shirt & Arms
+                    const armOffset = this.isMoving ? (this.walkFrame % 2 === 1 ? -2 : 2) : 0;
+                    if (this.profile.bottomType !== 'dress') {
+                        rect(1, 10, 8, 10, this.profile.shirtColor);
+                        rect(-1, 10 + armOffset, 2, 8, this.profile.shirtColor);
+                        rect(9, 10 - armOffset, 2, 8, this.profile.shirtColor);
+                    }
+
+                    // Hair
+                    const hc = this.profile.hairColor;
+                    if (this.profile.hairStyle === 'short') rect(headX - 1, -1, headW + 2, 3, hc);
+                    else if (this.profile.hairStyle === 'long') {
+                        rect(headX - 1, -1, headW + 2, 3, hc);
+                        rect(headX - 1, 2, 2, 9, hc);
+                        rect(headX + headW - 1, 2, 2, 9, hc);
+                    } else if (this.profile.hairStyle === 'spiky') {
+                        rect(headX, -2, headW, 2, hc);
+                        rect(headX - 1, 0, headW + 2, 2, hc);
+                    }
+                }
+
+                wCtx.restore();
+
+                this.drawSoundWave(py);
+
+                // Sitting/Laying State Indicator Badge
+                if (this.interactState) {
+                    wCtx.save();
+                    wCtx.fillStyle = '#ffe600';
+                    wCtx.font = '6px "Press Start 2P"';
+                    wCtx.textAlign = 'center';
+                    wCtx.fillText(this.interactState === 'lay' ? '💤 Zzz...' : '🛋️ SITTING', this.x, py - 18);
+                    wCtx.restore();
+                }
+
+                // Player Name
+                wCtx.save();
+                wCtx.fillStyle = this.isLocal ? '#ffe600' : '#00c4d4';
+                wCtx.font = '8px "Press Start 2P"';
+                wCtx.textAlign = 'center';
+                wCtx.fillText(this.profile.name, this.x, py - 6);
+                wCtx.restore();
+            }
+        }
+
+        const worldCanvas = document.getElementById('worldCanvas');
+        const wCtx = worldCanvas.getContext('2d');
+        worldCanvas.width = window.innerWidth;
+        worldCanvas.height = window.innerHeight;
+
+        const playersMap = new Map();
+        let localPlayer = null;
+
+        setInterval(() => {
+            if (activeLobby && localPlayer) {
+                lobbyChannel.postMessage({
+                    type: 'SYNC',
+                    id: mySessionId,
+                    x: localPlayer.x,
+                    y: localPlayer.y,
+                    targetX: localPlayer.targetX,
+                    targetY: localPlayer.targetY,
+                    profile: userProfile,
+                    audioVolume: localPlayer.audioVolume,
+                    interactState: localPlayer.interactState
+                });
+            }
+        }, 80);
+
+        lobbyChannel.onmessage = (e) => {
+            const msg = e.data;
+            if (msg.id === mySessionId) return;
+
+            if (msg.type === 'SYNC' && activeLobby) {
+                if (!playersMap.has(msg.id)) {
+                    const newRemote = new Player(msg.id, msg.x, msg.y, msg.profile, false);
+                    playersMap.set(msg.id, newRemote);
+
+                    if (isMicActive && localAudioStream) {
+                        callAllPeers();
+                    }
+                }
+                const player = playersMap.get(msg.id);
+                player.targetX = msg.targetX;
+                player.targetY = msg.targetY;
+                player.profile = msg.profile;
+                player.audioVolume = msg.audioVolume || 0;
+                player.interactState = msg.interactState || null;
+            } else if (msg.type === 'FURNITURE_SYNC' && activeLobby) {
+                if (msg.furniture && Array.isArray(msg.furniture)) {
+                    msg.furniture.forEach(sf => {
+                        const localF = furnitureList.find(f => f.id === sf.id);
+                        if (localF && !draggedFurniture) {
+                            localF.x = sf.x;
+                            localF.y = sf.y;
+                        }
+                    });
+                }
+            } else if (msg.type === 'CHAT' && activeLobby) {
+                const sender = playersMap.get(msg.id);
+                if (sender) createSpeechBubble(sender, msg.text);
+            } else if (msg.type === 'LEAVE') {
+                removePlayer(msg.id);
+            }
+        };
+
+        function removePlayer(id) {
+            if (playersMap.has(id)) {
+                const existingIndex = activeBubbles.findIndex(b => b.player === playersMap.get(id));
+                if (existingIndex > -1) {
+                    activeBubbles[existingIndex].element.remove();
+                    activeBubbles.splice(existingIndex, 1);
+                }
+                playersMap.delete(id);
+                removeRemoteAudio(id);
+            }
+        }
+
+        /* --- SPEECH BUBBLES SYSTEM --- */
+        const activeBubbles = [];
+        const bubbleContainer = document.getElementById('bubbleContainer');
+
+        function createSpeechBubble(player, text) {
+            const existingIndex = activeBubbles.findIndex(b => b.player === player);
+            if (existingIndex > -1) {
+                activeBubbles[existingIndex].element.remove();
+                activeBubbles.splice(existingIndex, 1);
+            }
+
+            const el = document.createElement('div');
+            el.className = 'speech-bubble';
+            el.innerText = text;
+            bubbleContainer.appendChild(el);
+
+            const bubbleObj = {
+                player: player,
+                element: el,
+                timer: setTimeout(() => {
+                    el.remove();
+                    const idx = activeBubbles.indexOf(bubbleObj);
+                    if (idx > -1) activeBubbles.splice(idx, 1);
+                }, 4000)
+            };
+
+            activeBubbles.push(bubbleObj);
+        }
+
+        function updateBubbles() {
+            activeBubbles.forEach(b => {
+                b.element.style.left = `${b.player.x}px`;
+                b.element.style.top = `${b.player.y - 110}px`;
+            });
+        }
+
+        /* --- CHAT INPUT LOGIC --- */
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        function sendChatMessage() {
+            const txt = chatInput.value.trim();
+            if (txt && localPlayer && activeLobby) {
+                createSpeechBubble(localPlayer, txt);
+                lobbyChannel.postMessage({
+                    type: 'CHAT',
+                    id: mySessionId,
+                    text: txt
+                });
+                chatInput.value = '';
+            }
+        }
+
+        sendBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sendChatMessage();
+        });
+
+        chatInput.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') sendChatMessage();
+        });
+
+        /* --- AUDIO VOLUME SAMPLING LOOP --- */
+        function processAudioVolume() {
+            if (analyser && micDataArray && isMicActive) {
+                analyser.getByteFrequencyData(micDataArray);
+                let sum = 0;
+                for (let i = 0; i < micDataArray.length; i++) {
+                    sum += micDataArray[i];
+                }
+                const average = sum / micDataArray.length;
+                currentAudioVolume = Math.min(1, average / 128);
+            } else {
+                currentAudioVolume = 0;
+            }
+        }
+
+        function renderWorld() {
+            processAudioVolume();
+            wCtx.clearRect(0, 0, worldCanvas.width, worldCanvas.height);
+            if (activeLobby) {
+                // Draw Furniture items first (under players)
+                furnitureList.forEach(f => drawFurnitureItem(f));
+
+                // Draw Players
+                playersMap.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+                updateBubbles();
+            }
+            requestAnimationFrame(renderWorld);
+        }
+
+        /* --- VOICE CHAT IMPLEMENTATION WITH REAL AUDIO WEBRTC STREAMING --- */
+        const micBtn = document.getElementById('micBtn');
+        let localAudioStream = null;
+        let isMicActive = false;
+
+        async function toggleVoiceChat() {
+            if (!isMicActive) {
+                try {
+                    localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const source = audioCtx.createMediaStreamSource(localAudioStream);
+                    analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 64;
+                    micDataArray = new Uint8Array(analyser.frequencyBinCount);
+                    source.connect(analyser);
+
+                    isMicActive = true;
+                    micBtn.classList.add('active');
+
+                    callAllPeers();
+
+                    if (localPlayer) {
+                        createSpeechBubble(localPlayer, "🎙️ MIC ON");
+                    }
+                } catch (err) {
+                    alert("Microphone access denied or unavailable.");
+                }
+            } else {
+                stopVoiceChat();
+            }
+        }
+
+        function stopVoiceChat() {
+            if (localAudioStream) {
+                localAudioStream.getTracks().forEach(track => track.stop());
+                localAudioStream = null;
+            }
+            if (audioCtx) {
+                audioCtx.close();
+                audioCtx = null;
+            }
+            analyser = null;
+            micDataArray = null;
+            currentAudioVolume = 0;
+
+            activeCalls.forEach(call => call.close());
+            activeCalls.clear();
+
+            isMicActive = false;
+            micBtn.classList.remove('active');
+            if (localPlayer && activeLobby) {
+                createSpeechBubble(localPlayer, "0🔇 MIC OFF");
+            }
+        }
+
+        micBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleVoiceChat();
+        });
+
+        /* --- CONTROLS & EXIT LOGIC --- */
+        const converseBtn = document.getElementById('converseBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const chatBar = document.getElementById('chatBar');
+        const heroSection = document.getElementById('heroSection');
+
+        converseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            triggerCloudTransition(() => {
+                initPeer();
+                initFurniture(); // Initialize furniture with saved positions
+                activeLobby = true;
+                localPlayer = new Player(mySessionId, window.innerWidth / 2, window.innerHeight / 2 + 50, userProfile, true);
+                playersMap.set(mySessionId, localPlayer);
+
+                worldCanvas.style.display = 'block';
+                chatBar.style.display = 'flex';
+                heroSection.style.display = 'none';
+
+                document.getElementById('canvas-bg').style.opacity = '0';
+
+                lobbyChannel.postMessage({
+                    type: 'SYNC',
+                    id: mySessionId,
+                    x: localPlayer.x,
+                    y: localPlayer.y,
+                    targetX: localPlayer.targetX,
+                    targetY: localPlayer.targetY,
+                    profile: userProfile,
+                    audioVolume: localPlayer.audioVolume
+                });
+            });
+        });
+
+        function leaveLobby() {
+            triggerCloudTransition(() => {
+                stopVoiceChat();
+                activeLobby = false;
+
+                lobbyChannel.postMessage({
+                    type: 'LEAVE',
+                    id: mySessionId
+                });
+
+                playersMap.clear();
+                localPlayer = null;
+
+                worldCanvas.style.display = 'none';
+                chatBar.style.display = 'none';
+                heroSection.style.display = 'flex';
+
+                document.getElementById('canvas-bg').style.opacity = '0.4';
+            });
+        }
+
+        leaveBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            leaveLobby();
+        });
+
+        // Initialize Render Loop
+        renderWorld();
+    </script>
+</body>
+</html>
