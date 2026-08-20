@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOOD RESEARCH // CHARACTER CREATOR</title>
+    <!-- Import Retro Pixel Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Press Start 2P', monospace;
+            image-rendering: pixelated;
+        }
+
+        body {
+            background-color: #0b0c10;
+            color: #ffffff;
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Interactive Canvas Background */
+        #canvas-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background: radial-gradient(circle at center, #180e29 0%, #05020a 100%);
+        }
+
+        /* Scanline Overlay for CRT TV Look */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1000;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.35) 50%
+            );
+            background-size: 100% 4px;
+        }
+
+        /* Pixelated Navigation Bar */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 8%;
+            background: #000000;
+            border-bottom: 4px solid #ffe600;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.4rem;
+            color: #ffffff;
+            text-shadow: 2px 2px #ffe600;
+        }
+
+        .logo span {
+            color: #ffe600;
+            text-shadow: 2px 2px #e60073;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: 0.1s;
+            text-transform: uppercase;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: #ffe600;
+            text-shadow: 2px 2px #e60073;
+        }
+
+        /* Main Studio Container */
+        .studio-container {
+            flex: 1;
+            max-width: 1000px;
+            width: 90%;
+            margin: 30px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .studio-header {
+            text-align: center;
+        }
+
+        .studio-header h1 {
+            font-size: 1.8rem;
+            color: #ffffff;
+            text-shadow: 3px 3px 0px #ffe600, 6px 6px 0px #e60073;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .studio-header p {
+            font-size: 0.7rem;
+            color: #00c4d4;
+            text-shadow: 1px 1px #000000;
+        }
+
+        /* Customization Grid Layout */
+        .creator-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+        }
+
+        /* Preview Window */
+        .preview-panel {
+            background: #000000;
+            border: 4px solid #ffe600;
+            box-shadow: 6px 6px 0px #e60073;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 200px;
+            height: 280px;
+            background: #110924;
+            border: 3px solid #00c4d4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #avatarCanvas {
+            image-rendering: pixelated;
+        }
+
+        .character-name-display {
+            font-size: 0.8rem;
+            color: #ffe600;
+            text-align: center;
+            text-shadow: 2px 2px #000000;
+        }
+
+        /* Wardrobe Controls Panel */
+        .wardrobe-panel {
+            background: rgba(0, 0, 0, 0.85);
+            border: 4px solid #ffffff;
+            box-shadow: 6px 6px 0px #00c4d4;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-height: 520px;
+            overflow-y: auto;
+        }
+
+        /* Custom Scrollbar for Controls */
+        .wardrobe-panel::-webkit-scrollbar {
+            width: 10px;
+        }
+        .wardrobe-panel::-webkit-scrollbar-track {
+            background: #000000;
+        }
+        .wardrobe-panel::-webkit-scrollbar-thumb {
+            background: #00c4d4;
+            border: 2px solid #000000;
+        }
+
+        .section-title {
+            font-size: 0.75rem;
+            color: #ffe600;
+            border-bottom: 2px dashed #ffe600;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .control-label {
+            font-size: 0.65rem;
+            color: #ffffff;
+        }
+
+        /* Custom Select Buttons */
+        .option-selector {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-option {
+            background: #110924;
+            border: 2px solid #00c4d4;
+            color: #ffffff;
+            padding: 8px 12px;
+            font-size: 0.6rem;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .btn-option:hover, .btn-option.active {
+            background: #00c4d4;
+            color: #000000;
+            border-color: #ffffff;
+            box-shadow: 2px 2px 0px #e60073;
+        }
+
+        /* Color Palette Grid */
+        .color-picker {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border: 2px solid #ffffff;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .color-swatch:hover, .color-swatch.active {
+            transform: scale(1.15);
+            border-color: #ffe600;
+            box-shadow: 0 0 0 2px #000000;
+        }
+
+        /* Name Input */
+        .name-input {
+            background: #0b0c10;
+            border: 3px solid #ffffff;
+            color: #ffe600;
+            padding: 10px;
+            font-size: 0.7rem;
+            outline: none;
+        }
+
+        .name-input:focus {
+            border-color: #e60073;
+        }
+
+        /* Save Button */
+        .btn-save {
+            background: #ffe600;
+            color: #000000;
+            padding: 14px 24px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            border: none;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px #ffffff;
+            align-self: flex-start;
+            margin-top: 10px;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .btn-save:hover {
+            background: #ffffff;
+            box-shadow: 4px 4px 0px #e60073;
+            transform: translate(-2px, -2px);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 820px) {
+            .creator-grid {
+                grid-template-columns: 1fr;
+            }
+            .studio-header h1 {
+                font-size: 1.2rem;
+            }
+            .nav-links {
+                display: none;
+            }
+            .btn-save {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+
+    <!-- Background Canvas -->
+    <canvas id="canvas-bg"></canvas>
+
+    <nav>
+        <div class="logo">HOOD<span>.DEPT</span></div>
+        <ul class="nav-links">
+            <li><a href="Character.html" class="active">Character</a></li>
+            <li><a href="General.html">Global</a></li>
+            <li><a href="Chat.html">Chat</a></li>
+            <li><a href="Main.html">Back</a></li>
+        </ul>
+    </nav>
+
+    <main class="studio-container">
+        <header class="studio-header">
+            <h1>Wardrobe Studio</h1>
+            <p>[ DESIGN YOUR AVATAR ]</p>
+        </header>
+
+        <div class="creator-grid">
+            <!-- Canvas Preview -->
+            <section class="preview-panel">
+                <div class="canvas-wrapper">
+                    <canvas id="avatarCanvas" width="128" height="192"></canvas>
+                </div>
+                <div class="character-name-display" id="displayName">OPERATIVE</div>
+            </section>
+
+            <!-- Customization Controls -->
+            <section class="wardrobe-panel">
+                <!-- Identity Section -->
+                <div>
+                    <div class="section-title">Identity</div>
+                    <div class="control-group">
+                        <label class="control-label" for="charName">Callsign:</label>
+                        <input type="text" id="charName" class="name-input" value="OPERATIVE" maxlength="15">
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Base Model:</label>
+                        <div class="option-selector" id="genderSelector">
+                            <button class="btn-option active" data-value="masc">Type A</button>
+                            <button class="btn-option" data-value="fem">Type B</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Body & Hair -->
+                <div>
+                    <div class="section-title">Body &amp; Hair</div>
+                    <div class="control-group">
+                        <label class="control-label">Skin Tone:</label>
+                        <div class="color-picker" id="skinPicker"></div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Hair Style:</label>
+                        <div class="option-selector" id="hairStyleSelector">
+                            <button class="btn-option active" data-value="short">Short</button>
+                            <button class="btn-option" data-value="long">Long</button>
+                            <button class="btn-option" data-value="spiky">Spiky</button>
+                            <button class="btn-option" data-value="bald">None</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Hair Color:</label>
+                        <div class="color-picker" id="hairColorPicker"></div>
+                    </div>
+                </div>
+
+                <!-- Top / Shirt -->
+                <div>
+                    <div class="section-title">Upper Wear</div>
+                    <div class="control-group">
+                        <label class="control-label">Shirt Color:</label>
+                        <div class="color-picker" id="shirtColorPicker"></div>
+                    </div>
+                </div>
+
+                <!-- Bottom / Wardrobe -->
+                <div>
+                    <div class="section-title">Lower Wear</div>
+                    <div class="control-group">
+                        <label class="control-label">Garment Type:</label>
+                        <div class="option-selector" id="bottomTypeSelector">
+                            <button class="btn-option active" data-value="pants">Pants</button>
+                            <button class="btn-option" data-value="shorts">Shorts</button>
+                            <button class="btn-option" data-value="dress">Dress</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Garment Color:</label>
+                        <div class="color-picker" id="bottomColorPicker"></div>
+                    </div>
+                </div>
+
+                <button class="btn-save" id="saveBtn">SAVE AVATAR</button>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        /* --- AVATAR STATE & CONFIGURATION --- */
+        const avatarState = {
+            name: 'OPERATIVE',
+            gender: 'masc',
+            skinColor: '#f1c27d',
+            hairStyle: 'short',
+            hairColor: '#3d2314',
+            shirtColor: '#e60073',
+            bottomType: 'pants',
+            bottomColor: '#00c4d4'
+        };
+
+        const palettes = {
+            skin: ['#ffdbac', '#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#4a2c11'],
+            hair: ['#090809', '#3d2314', '#b1560f', '#e6be8a', '#e60073', '#00c4d4', '#ffffff'],
+            clothing: ['#e60073', '#00c4d4', '#ffe600', '#25d366', '#9b22e6', '#ffffff', '#111111', '#e65300']
+        };
+
+        // DOM Elements
+        const canvas = document.getElementById('avatarCanvas');
+        const ctx = canvas.getContext('2d');
+        const nameInput = document.getElementById('charName');
+        const displayName = document.getElementById('displayName');
+
+        // Initialize Swatches
+        function createSwatches(containerId, colorList, stateKey) {
+            const container = document.getElementById(containerId);
+            colorList.forEach((color, index) => {
+                const swatch = document.createElement('div');
+                swatch.className = `color-swatch ${color === avatarState[stateKey] ? 'active' : ''}`;
+                swatch.style.backgroundColor = color;
+                swatch.addEventListener('click', () => {
+                    container.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+                    swatch.classList.add('active');
+                    avatarState[stateKey] = color;
+                    drawAvatar();
+                });
+                container.appendChild(swatch);
+            });
+        }
+
+        createSwatches('skinPicker', palettes.skin, 'skinColor');
+        createSwatches('hairColorPicker', palettes.hair, 'hairColor');
+        createSwatches('shirtColorPicker', palettes.clothing, 'shirtColor');
+        createSwatches('bottomColorPicker', palettes.clothing, 'bottomColor');
+
+        // Button Option Listeners
+        function setupOptionSelector(containerId, stateKey) {
+            const container = document.getElementById(containerId);
+            const buttons = container.querySelectorAll('.btn-option');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    buttons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    avatarState[stateKey] = btn.getAttribute('data-value');
+                    drawAvatar();
+                });
+            });
+        }
+
+        setupOptionSelector('genderSelector', 'gender');
+        setupOptionSelector('hairStyleSelector', 'hairStyle');
+        setupOptionSelector('bottomTypeSelector', 'bottomType');
+
+        nameInput.addEventListener('input', (e) => {
+            const val = e.target.value.toUpperCase() || 'OPERATIVE';
+            avatarState.name = val;
+            displayName.innerText = val;
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            localStorage.setItem('hoodAvatar', JSON.stringify(avatarState));
+            alert('AVATAR CONFIGURATION SAVED!');
+        });
+
+        /* --- PIXEL ART RENDERING ENGINE --- */
+        function drawAvatar() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.imageSmoothingEnabled = false;
+
+            const scale = 4;
+            const offsetX = 12;
+            const offsetY = 10;
+
+            // Helper to fill grid pixels
+            function pixel(x, y, color) {
+                ctx.fillStyle = color;
+                ctx.fillRect((x + offsetX) * scale, (y + offsetY) * scale, scale, scale);
+            }
+
+            function rect(x, y, w, h, color) {
+                ctx.fillStyle = color;
+                ctx.fillRect((x + offsetX) * scale, (y + offsetY) * scale, w * scale, h * scale);
+            }
+
+            // 1. BASE BODY & HEAD
+            const headWidth = avatarState.gender === 'fem' ? 6 : 8;
+            const headX = avatarState.gender === 'fem' ? 1 : 0;
+            
+            // Head
+            rect(headX, 0, headWidth, 8, avatarState.skinColor);
+            
+            // Eyes
+            pixel(headX + 1, 3, '#000000');
+            pixel(headX + headWidth - 2, 3, '#000000');
+
+            // Neck
+            rect(3, 8, 2, 2, avatarState.skinColor);
+
+            // Legs / Skin (if shorts or dress)
+            rect(2, 22, 1, 10, avatarState.skinColor);
+            rect(5, 22, 1, 10, avatarState.skinColor);
+
+            // Shoes
+            rect(1, 32, 2, 3, '#111111');
+            rect(5, 32, 2, 3, '#111111');
+
+            // 2. LOWER WEAR (Pants, Shorts, Dress)
+            if (avatarState.bottomType === 'pants') {
+                rect(1, 20, 3, 12, avatarState.bottomColor);
+                rect(4, 20, 3, 12, avatarState.bottomColor);
+            } else if (avatarState.bottomType === 'shorts') {
+                rect(1, 20, 3, 5, avatarState.bottomColor);
+                rect(4, 20, 3, 5, avatarState.bottomColor);
+            } else if (avatarState.bottomType === 'dress') {
+                rect(0, 10, 8, 14, avatarState.bottomColor);
+            }
+
+            // 3. UPPER WEAR (Shirt)
+            if (avatarState.bottomType !== 'dress') {
+                // Main Torso
+                rect(1, 10, 6, 10, avatarState.shirtColor);
+                // Arms
+                rect(-1, 10, 2, 8, avatarState.shirtColor);
+                rect(7, 10, 2, 8, avatarState.shirtColor);
+                // Hands
+                rect(-1, 18, 2, 2, avatarState.skinColor);
+                rect(7, 18, 2, 2, avatarState.skinColor);
+            } else {
+                // Dress Sleeves / Arms
+                rect(-1, 10, 2, 6, avatarState.bottomColor);
+                rect(7, 10, 2, 6, avatarState.bottomColor);
+                rect(-1, 16, 2, 3, avatarState.skinColor);
+                rect(7, 16, 2, 3, avatarState.skinColor);
+            }
+
+            // 4. HAIR STYLES
+            const hairColor = avatarState.hairColor;
+            if (avatarState.hairStyle === 'short') {
+                rect(headX - 1, -1, headWidth + 2, 3, hairColor);
+                pixel(headX - 1, 2, hairColor);
+                pixel(headX + headWidth, 2, hairColor);
+            } else if (avatarState.hairStyle === 'long') {
+                rect(headX - 1, -1, headWidth + 2, 3, hairColor);
+                rect(headX - 1, 2, 2, 10, hairColor);
+                rect(headX + headWidth - 1, 2, 2, 10, hairColor);
+            } else if (avatarState.hairStyle === 'spiky') {
+                rect(headX, -2, headWidth, 2, hairColor);
+                pixel(headX + 1, -3, hairColor);
+                pixel(headX + 4, -3, hairColor);
+                rect(headX - 1, 0, headWidth + 2, 2, hairColor);
+            }
+        }
+
+        // Load Saved Configuration if present
+        const saved = localStorage.getItem('hoodAvatar');
+        if (saved) {
+            try {
+                Object.assign(avatarState, JSON.parse(saved));
+                nameInput.value = avatarState.name;
+                displayName.innerText = avatarState.name;
+            } catch(e) {}
+        }
+
+        drawAvatar();
+
+        /* --- BACKGROUND CANVAS ANIMATION --- */
+        const bgCanvas = document.getElementById('canvas-bg');
+        const bgCtx = bgCanvas.getContext('2d');
+
+        const PIXEL_SCALE = 4;
+        let width = bgCanvas.width = Math.floor(window.innerWidth / PIXEL_SCALE);
+        let height = bgCanvas.height = Math.floor(window.innerHeight / PIXEL_SCALE);
+
+        window.addEventListener('resize', () => {
+            width = bgCanvas.width = Math.floor(window.innerWidth / PIXEL_SCALE);
+            height = bgCanvas.height = Math.floor(window.innerHeight / PIXEL_SCALE);
+        });
+
+        const bgColors = ['#e60073', '#00c4d4', '#ffe600', '#9b22e6'];
+        const shapes = Array.from({ length: 25 }, () => ({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            size: Math.floor(Math.random() * 6 + 6),
+            color: bgColors[Math.floor(Math.random() * bgColors.length)],
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.3
+        }));
+
+        function animateBG() {
+            bgCtx.clearRect(0, 0, width, height);
+            shapes.forEach(s => {
+                s.x += s.vx;
+                s.y += s.vy;
+                if (s.x < 0 || s.x > width) s.vx *= -1;
+                if (s.y < 0 || s.y > height) s.vy *= -1;
+
+                bgCtx.fillStyle = s.color;
+                bgCtx.fillRect(Math.floor(s.x), Math.floor(s.y), s.size, s.size);
+            });
+            requestAnimationFrame(animateBG);
+        }
+        animateBG();
+    </script>
+</body>
+</html>
