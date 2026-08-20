@@ -12,6 +12,10 @@
     <!-- PeerJS WebRTC Library for Audio Streaming -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
+    <!-- Firebase SDKs for Global Multiplayer -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -376,6 +380,26 @@
     <div id="bubbleContainer"></div>
 
     <script>
+        /* --- FIREBASE CONFIGURATION --- */
+        // REPLACE THE VALUES BELOW WITH YOUR FIREBASE PROJECT CONFIG
+      const firebaseConfig = {
+  apiKey: "AIzaSyAEXBAkQwimPSW-h2mJMvyl5XFgkphy5T8",
+  authDomain: "hoodwebsite-cbf82.firebaseapp.com",
+  databaseURL: "https://hoodwebsite-cbf82-default-rtdb.firebaseio.com",
+  projectId: "hoodwebsite-cbf82",
+  storageBucket: "hoodwebsite-cbf82.firebasestorage.app",
+  messagingSenderId: "754725850199",
+  appId: "1:754725850199:web:697cb6d6e40a2392f0e712",
+  measurementId: "G-VYNYHJ0QZH"
+};
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const playersRef = db.ref('lobby/players');
+        const furnitureRef = db.ref('lobby/furniture');
+        const chatRef = db.ref('lobby/chat');
+
         /* --- CLOUD TRANSITION SYSTEM --- */
         const cloudOverlay = document.getElementById('cloudOverlay');
         const rows = 5;
@@ -466,9 +490,8 @@
         }
         animateBG();
 
-        /* --- MULTIPLAYER BROADCAST CHANNEL --- */
-        const lobbyChannel = new BroadcastChannel('hood_lobby_network');
-        const mySessionId = 'usr' + Math.random().toString(36).substr(2, 8);
+        /* --- MULTIPLAYER SETUP --- */
+        const mySessionId = 'usr_' + Math.random().toString(36).substr(2, 8);
         let activeLobby = false;
 
         const defaultProfile = {
@@ -485,7 +508,7 @@
         const localSaved = localStorage.getItem('hoodAvatar');
         const userProfile = localSaved ? JSON.parse(localSaved) : defaultProfile;
 
-        /* --- FURNITURE SYSTEM WITH PERSISTENCE --- */
+        /* --- FURNITURE SYSTEM WITH FIREBASE SYNC --- */
         const FURNITURE_DEFS = [
             { id: 'f1', type: 'sofa', name: 'Red Sofa', action: 'sit', width: 90, height: 45, color: '#e60073', subColor: '#99004d' },
             { id: 'f2', type: 'sofa', name: 'Leather Sofa', action: 'sit', width: 90, height: 45, color: '#6e3b12', subColor: '#422209' },
@@ -502,12 +525,6 @@
         let furnitureList = [];
 
         function initFurniture() {
-            const savedPositions = localStorage.getItem('hoodFurniturePositions');
-            let parsedSaved = null;
-            if (savedPositions) {
-                try { parsedSaved = JSON.parse(savedPositions); } catch(e){}
-            }
-
             const centerX = window.innerWidth / 2;
             const centerY = window.innerHeight / 2;
 
@@ -525,27 +542,39 @@
             ];
 
             furnitureList = FURNITURE_DEFS.map(def => {
-                const saved = parsedSaved ? parsedSaved.find(s => s.id === def.id) : null;
                 const defPos = defaultPositions.find(p => p.id === def.id);
                 return {
                     ...def,
-                    x: saved ? saved.x : (defPos ? defPos.x : centerX),
-                    y: saved ? saved.y : (defPos ? defPos.y : centerY)
+                    x: defPos ? defPos.x : centerX,
+                    y: defPos ? defPos.y : centerY
                 };
+            });
+
+            // Listen to global furniture changes from Firebase
+            furnitureRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    Object.keys(data).forEach(fid => {
+                        const localF = furnitureList.find(f => f.id === fid);
+                        if (localF && !draggedFurniture) {
+                            localF.x = data[fid].x;
+                            localF.y = data[fid].y;
+                        }
+                    });
+                }
             });
         }
 
         function saveFurniturePositions() {
-            const posData = furnitureList.map(f => ({ id: f.id, x: f.x, y: f.y }));
-            localStorage.setItem('hoodFurniturePositions', JSON.stringify(posData));
-            if (activeLobby) {
-                lobbyChannel.postMessage({ type: 'FURNITURE_SYNC', furniture: posData });
-            }
+            const posData = {};
+            furnitureList.forEach(f => {
+                posData[f.id] = { x: f.x, y: f.y };
+            });
+            furnitureRef.update(posData);
         }
 
         document.getElementById('resetFurnBtn').addEventListener('click', (e) => {
             e.stopPropagation();
-            localStorage.removeItem('hoodFurniturePositions');
             initFurniture();
             saveFurniturePositions();
         });
@@ -574,7 +603,6 @@
             if (!activeLobby) return;
             const pos = getPointerPos(e);
             
-            // Check furniture click top to bottom
             for (let i = furnitureList.length - 1; i >= 0; i--) {
                 const f = furnitureList[i];
                 const halfW = f.width / 2;
@@ -589,7 +617,6 @@
                 }
             }
 
-            // If not clicking furniture, move local player
             if (localPlayer) {
                 localPlayer.targetX = pos.x;
                 localPlayer.targetY = pos.y;
@@ -626,22 +653,17 @@
             const x = f.x - f.width / 2;
             const y = f.y - f.height / 2;
 
-            // Shadow
             wCtx.fillStyle = 'rgba(0,0,0,0.3)';
             wCtx.fillRect(x + 4, y + f.height - 4, f.width, 8);
 
             if (f.type === 'sofa') {
-                // Main base
                 wCtx.fillStyle = f.color;
                 wCtx.fillRect(x, y + 10, f.width, f.height - 10);
-                // Backrest
                 wCtx.fillStyle = f.subColor;
                 wCtx.fillRect(x, y, f.width, 14);
-                // Armrests
                 wCtx.fillStyle = f.subColor;
                 wCtx.fillRect(x, y + 10, 10, f.height - 10);
                 wCtx.fillRect(x + f.width - 10, y + 10, 10, f.height - 10);
-                // Cushion lines
                 wCtx.strokeStyle = 'rgba(0,0,0,0.2)';
                 wCtx.lineWidth = 2;
                 wCtx.beginPath();
@@ -649,32 +671,24 @@
                 wCtx.lineTo(x + f.width/2, y + f.height);
                 wCtx.stroke();
             } else if (f.type === 'chair') {
-                // Main seat
                 wCtx.fillStyle = f.color;
                 wCtx.fillRect(x + 4, y + 12, f.width - 8, f.height - 16);
-                // Backrest
                 wCtx.fillStyle = f.subColor;
                 wCtx.fillRect(x + 4, y, f.width - 8, 12);
-                // Legs
                 wCtx.fillStyle = '#111111';
                 wCtx.fillRect(x + 6, y + f.height - 6, 4, 6);
                 wCtx.fillRect(x + f.width - 10, y + f.height - 6, 4, 6);
             } else if (f.type === 'bed') {
-                // Frame
                 wCtx.fillStyle = '#422209';
                 wCtx.fillRect(x, y, f.width, f.height);
-                // Mattress / Sheet
                 wCtx.fillStyle = f.color;
                 wCtx.fillRect(x + 4, y + 15, f.width - 8, f.height - 19);
-                // Pillow
                 wCtx.fillStyle = f.subColor;
                 wCtx.fillRect(x + 8, y + 4, f.width - 16, 16);
-                // Blanket fold edge
                 wCtx.fillStyle = 'rgba(0,0,0,0.1)';
                 wCtx.fillRect(x + 4, y + 35, f.width - 8, 4);
             }
 
-            // Furniture Name Tag
             wCtx.fillStyle = '#ffffff';
             wCtx.font = '6px "Press Start 2P"';
             wCtx.textAlign = 'center';
@@ -741,7 +755,7 @@
             });
         }
 
-        /* --- PLAYER CLASS WITH ANIMATED WALKING, SITTING & LAYING POSES --- */
+        /* --- PLAYER CLASS --- */
         class Player {
             constructor(id, x, y, profile, isLocal = false) {
                 this.id = id;
@@ -758,7 +772,7 @@
                 this.animTimer = 0;
                 this.walkFrame = 0;
                 this.audioVolume = 0;
-                this.interactState = null; // 'sit', 'lay', or null
+                this.interactState = null;
                 this.attachedFurniture = null;
             }
 
@@ -780,7 +794,6 @@
                         this.walkFrame = (this.walkFrame + 1) % 4;
                     }
 
-                    // Leave furniture state when walking away
                     this.interactState = null;
                     this.attachedFurniture = null;
                 } else {
@@ -790,7 +803,6 @@
                     this.walkFrame = 0;
                     this.animTimer = 0;
 
-                    // Check nearest furniture if stationary
                     this.checkFurnitureInteraction();
                 }
 
@@ -801,7 +813,7 @@
 
             checkFurnitureInteraction() {
                 let nearest = null;
-                let minDist = 40; // Proximity threshold to trigger sit/lay
+                let minDist = 40;
 
                 furnitureList.forEach(f => {
                     const d = Math.hypot(this.x - f.x, this.y - f.y);
@@ -814,7 +826,6 @@
                 if (nearest) {
                     this.interactState = nearest.action;
                     this.attachedFurniture = nearest;
-                    // Snap slightly onto furniture
                     this.x = nearest.x;
                     this.y = nearest.y + (nearest.action === 'sit' ? 5 : 0);
                     this.targetX = this.x;
@@ -854,7 +865,6 @@
                 let charW = 12 * scale;
                 let charH = 35 * scale;
                 
-                // Adjust bounding box height when sitting or laying down
                 if (this.interactState === 'sit') charH = 22 * scale;
                 if (this.interactState === 'lay') charH = 12 * scale;
 
@@ -865,7 +875,6 @@
                 wCtx.save();
                 wCtx.imageSmoothingEnabled = false;
 
-                // Shadow
                 wCtx.fillStyle = 'rgba(0,0,0,0.35)';
                 wCtx.beginPath();
                 wCtx.ellipse(this.x, this.y + (this.interactState === 'lay' ? 10 : 0), 16, 6, 0, 0, Math.PI * 2);
@@ -887,26 +896,20 @@
                 const headX = this.profile.gender === 'fem' ? 2 : 1;
 
                 if (this.interactState === 'lay') {
-                    // LAYING DOWN POSE (Horizontal rendering)
-                    rect(0, 2, 8, 6, this.profile.skinColor); // Head
-                    p(2, 4, '#000000'); // Eye
-                    rect(6, 2, 14, 6, this.profile.shirtColor); // Body
-                    rect(20, 2, 10, 5, this.profile.bottomColor); // Legs
-                    // Hair
+                    rect(0, 2, 8, 6, this.profile.skinColor);
+                    p(2, 4, '#000000');
+                    rect(6, 2, 14, 6, this.profile.shirtColor);
+                    rect(20, 2, 10, 5, this.profile.bottomColor);
                     rect(-1, 1, 4, 8, this.profile.hairColor);
                 } else if (this.interactState === 'sit') {
-                    // SITTING POSE
                     rect(headX, 0, headW, 8, this.profile.skinColor);
                     p(headX + 1, 3, '#000000');
                     p(headX + headW - 2, 3, '#000000');
 
-                    // Torso
                     rect(1, 8, 8, 8, this.profile.shirtColor);
-                    // Bent Legs forward
                     rect(1, 16, 10, 4, this.profile.bottomColor);
-                    rect(8, 18, 3, 4, '#111111'); // Boots
+                    rect(8, 18, 3, 4, '#111111');
 
-                    // Hair
                     const hc = this.profile.hairColor;
                     if (this.profile.hairStyle === 'short') rect(headX - 1, -1, headW + 2, 3, hc);
                     else if (this.profile.hairStyle === 'long') {
@@ -917,7 +920,6 @@
                         rect(headX - 1, 0, headW + 2, 2, hc);
                     }
                 } else {
-                    // NORMAL STANDING / WALKING POSE
                     let leftLegOffset = 0;
                     let rightLegOffset = 0;
                     if (this.isMoving) {
@@ -925,18 +927,15 @@
                         else if (this.walkFrame === 3) { leftLegOffset = 3; rightLegOffset = -3; }
                     }
 
-                    // Head
                     rect(headX, 0, headW, 8, this.profile.skinColor);
                     p(headX + 1, 3, '#000000');
                     p(headX + headW - 2, 3, '#000000');
 
-                    // Legs & Boots
                     rect(2, 22 + leftLegOffset, 2, 10, this.profile.skinColor);
                     rect(6, 22 + rightLegOffset, 2, 10, this.profile.skinColor);
                     rect(1, 31 + leftLegOffset, 3, 3, '#111111');
                     rect(6, 31 + rightLegOffset, 3, 3, '#111111');
 
-                    // Bottoms
                     if (this.profile.bottomType === 'pants') {
                         rect(1, 20, 4, 11 + leftLegOffset, this.profile.bottomColor);
                         rect(5, 20, 4, 11 + rightLegOffset, this.profile.bottomColor);
@@ -947,7 +946,6 @@
                         rect(0, 10, 10, 14, this.profile.bottomColor);
                     }
 
-                    // Shirt & Arms
                     const armOffset = this.isMoving ? (this.walkFrame % 2 === 1 ? -2 : 2) : 0;
                     if (this.profile.bottomType !== 'dress') {
                         rect(1, 10, 8, 10, this.profile.shirtColor);
@@ -955,7 +953,6 @@
                         rect(9, 10 - armOffset, 2, 8, this.profile.shirtColor);
                     }
 
-                    // Hair
                     const hc = this.profile.hairColor;
                     if (this.profile.hairStyle === 'short') rect(headX - 1, -1, headW + 2, 3, hc);
                     else if (this.profile.hairStyle === 'long') {
@@ -972,7 +969,6 @@
 
                 this.drawSoundWave(py);
 
-                // Sitting/Laying State Indicator Badge
                 if (this.interactState) {
                     wCtx.save();
                     wCtx.fillStyle = '#ffe600';
@@ -982,7 +978,6 @@
                     wCtx.restore();
                 }
 
-                // Player Name
                 wCtx.save();
                 wCtx.fillStyle = this.isLocal ? '#ffe600' : '#00c4d4';
                 wCtx.font = '8px "Press Start 2P"';
@@ -1000,10 +995,10 @@
         const playersMap = new Map();
         let localPlayer = null;
 
+        // Send positions to Firebase every 80ms
         setInterval(() => {
             if (activeLobby && localPlayer) {
-                lobbyChannel.postMessage({
-                    type: 'SYNC',
+                db.ref('lobby/players/' + mySessionId).set({
                     id: mySessionId,
                     x: localPlayer.x,
                     y: localPlayer.y,
@@ -1011,47 +1006,59 @@
                     targetY: localPlayer.targetY,
                     profile: userProfile,
                     audioVolume: localPlayer.audioVolume,
-                    interactState: localPlayer.interactState
+                    interactState: localPlayer.interactState,
+                    lastSeen: firebase.database.ServerValue.TIMESTAMP
                 });
             }
         }, 80);
 
-        lobbyChannel.onmessage = (e) => {
-            const msg = e.data;
-            if (msg.id === mySessionId) return;
+        // Listen for players joining or moving globally
+        playersRef.on('value', (snapshot) => {
+            if (!activeLobby) return;
+            const data = snapshot.val();
+            if (!data) return;
 
-            if (msg.type === 'SYNC' && activeLobby) {
-                if (!playersMap.has(msg.id)) {
-                    const newRemote = new Player(msg.id, msg.x, msg.y, msg.profile, false);
-                    playersMap.set(msg.id, newRemote);
+            const activeIds = new Set(Object.keys(data));
+
+            // Remove players no longer present
+            playersMap.forEach((_, id) => {
+                if (!activeIds.has(id) && id !== mySessionId) {
+                    removePlayer(id);
+                }
+            });
+
+            // Update or add online players
+            Object.keys(data).forEach(id => {
+                if (id === mySessionId) return;
+
+                const msg = data[id];
+                if (!playersMap.has(id)) {
+                    const newRemote = new Player(id, msg.x, msg.y, msg.profile, false);
+                    playersMap.set(id, newRemote);
 
                     if (isMicActive && localAudioStream) {
                         callAllPeers();
                     }
                 }
-                const player = playersMap.get(msg.id);
+
+                const player = playersMap.get(id);
                 player.targetX = msg.targetX;
                 player.targetY = msg.targetY;
                 player.profile = msg.profile;
                 player.audioVolume = msg.audioVolume || 0;
                 player.interactState = msg.interactState || null;
-            } else if (msg.type === 'FURNITURE_SYNC' && activeLobby) {
-                if (msg.furniture && Array.isArray(msg.furniture)) {
-                    msg.furniture.forEach(sf => {
-                        const localF = furnitureList.find(f => f.id === sf.id);
-                        if (localF && !draggedFurniture) {
-                            localF.x = sf.x;
-                            localF.y = sf.y;
-                        }
-                    });
-                }
-            } else if (msg.type === 'CHAT' && activeLobby) {
+            });
+        });
+
+        // Listen for global chat messages from Firebase
+        chatRef.limitToLast(1).on('child_added', (snapshot) => {
+            if (!activeLobby) return;
+            const msg = snapshot.val();
+            if (msg && msg.id !== mySessionId) {
                 const sender = playersMap.get(msg.id);
                 if (sender) createSpeechBubble(sender, msg.text);
-            } else if (msg.type === 'LEAVE') {
-                removePlayer(msg.id);
             }
-        };
+        });
 
         function removePlayer(id) {
             if (playersMap.has(id)) {
@@ -1109,10 +1116,10 @@
             const txt = chatInput.value.trim();
             if (txt && localPlayer && activeLobby) {
                 createSpeechBubble(localPlayer, txt);
-                lobbyChannel.postMessage({
-                    type: 'CHAT',
+                chatRef.push({
                     id: mySessionId,
-                    text: txt
+                    text: txt,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
                 chatInput.value = '';
             }
@@ -1147,10 +1154,8 @@
             processAudioVolume();
             wCtx.clearRect(0, 0, worldCanvas.width, worldCanvas.height);
             if (activeLobby) {
-                // Draw Furniture items first (under players)
                 furnitureList.forEach(f => drawFurnitureItem(f));
 
-                // Draw Players
                 playersMap.forEach(p => {
                     p.update();
                     p.draw();
@@ -1212,7 +1217,7 @@
             isMicActive = false;
             micBtn.classList.remove('active');
             if (localPlayer && activeLobby) {
-                createSpeechBubble(localPlayer, "0🔇 MIC OFF");
+                createSpeechBubble(localPlayer, "🔇 MIC OFF");
             }
         }
 
@@ -1232,27 +1237,19 @@
 
             triggerCloudTransition(() => {
                 initPeer();
-                initFurniture(); // Initialize furniture with saved positions
+                initFurniture();
                 activeLobby = true;
                 localPlayer = new Player(mySessionId, window.innerWidth / 2, window.innerHeight / 2 + 50, userProfile, true);
                 playersMap.set(mySessionId, localPlayer);
+
+                // Auto remove player node from Firebase when tab/phone is closed
+                db.ref('lobby/players/' + mySessionId).onDisconnect().remove();
 
                 worldCanvas.style.display = 'block';
                 chatBar.style.display = 'flex';
                 heroSection.style.display = 'none';
 
                 document.getElementById('canvas-bg').style.opacity = '0';
-
-                lobbyChannel.postMessage({
-                    type: 'SYNC',
-                    id: mySessionId,
-                    x: localPlayer.x,
-                    y: localPlayer.y,
-                    targetX: localPlayer.targetX,
-                    targetY: localPlayer.targetY,
-                    profile: userProfile,
-                    audioVolume: localPlayer.audioVolume
-                });
             });
         });
 
@@ -1261,10 +1258,8 @@
                 stopVoiceChat();
                 activeLobby = false;
 
-                lobbyChannel.postMessage({
-                    type: 'LEAVE',
-                    id: mySessionId
-                });
+                // Remove player from Firebase when manually leaving
+                db.ref('lobby/players/' + mySessionId).remove();
 
                 playersMap.clear();
                 localPlayer = null;
