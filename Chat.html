@@ -9,6 +9,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     
+    <!-- Firebase SDKs for Cross-Device Search -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
     <style>
         * {
             margin: 0;
@@ -21,7 +25,8 @@
         body {
             background-color: #0b0c10;
             color: #ffffff;
-            overflow: auto;
+            overflow-x: auto;
+            min-width: 1280px;
             height: 100vh;
             display: flex;
             flex-direction: column;
@@ -31,7 +36,8 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
+            width: 1280px;
+            min-width: 1280px;
             height: 100vh;
             pointer-events: none;
             z-index: 1000;
@@ -668,6 +674,21 @@
     </form>
 
     <script>
+        // FIREBASE INITIALIZATION
+       const firebaseConfig = {
+            apiKey: "AIzaSyAEXBAkQwimPSW-h2mJMvyl5XFgkphy5T8",
+            authDomain: "hoodwebsite-cbf82.firebaseapp.com",
+            databaseURL: "https://hoodwebsite-cbf82-default-rtdb.firebaseio.com",
+            projectId: "hoodwebsite-cbf82",
+            storageBucket: "hoodwebsite-cbf82.firebasestorage.app",
+            messagingSenderId: "754725850199",
+            appId: "1:754725850199:web:697cb6d6e40a2392f0e712",
+            measurementId: "G-VYNYHJ0QZH"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         let currentUser = null;
         let tempCustomPfp = null;
         let tempGroupIcon = null;
@@ -689,8 +710,6 @@
             'mr_developer': [{ id: 'msg_default', sender: 'MR. DEVELOPER', text: 'Hello! Sending a message here will send a direct email to blebleb.biji@gmail.com.', time: '12:00 AM', image: null, audio: null }]
         };
 
-        let registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
-
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('hoodChatUser');
             if (savedUser) {
@@ -708,14 +727,9 @@
 
             currentUser = { email, name, customPfp: null };
 
-            registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
-            const existingUserIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-            if (existingUserIndex === -1) {
-                registeredUsers.push(currentUser);
-            } else {
-                registeredUsers[existingUserIndex].name = name;
-            }
-            localStorage.setItem('hoodRegisteredUsers', JSON.stringify(registeredUsers));
+            // Sync User Record to Online Firebase Database
+            const userIdSanitized = email.replace(/[^a-zA-Z0-9]/g, '_');
+            db.ref('users/' + userIdSanitized).set(currentUser);
 
             localStorage.setItem('hoodChatUser', JSON.stringify(currentUser));
             document.getElementById('loginModal').style.display = 'none';
@@ -809,7 +823,6 @@
                 let imgHtml = msg.image ? `<img src="${msg.image}" class="msg-img">` : '';
                 let audioHtml = msg.audio ? `<audio controls src="${msg.audio}"></audio>` : '';
                 
-                // Show unsend button only on outgoing messages
                 let unsendBtnHtml = isMine ? `<button class="btn-unsend" onclick="unsendMessage(${index})">✕ UNSEND</button>` : '';
 
                 bubble.innerHTML = `
@@ -854,7 +867,6 @@
                 minute: '2-digit'
             });
 
-            // SEND MAIL TO DEVELOPER USING FORMSUBMIT
             if (targetChat && targetChat.id === 'mr_developer') {
                 const subject = `HOOD COMM MESSAGE FROM ${currentUser.name}`;
 
@@ -884,7 +896,6 @@
                 }
             }
 
-            // DISPLAY MESSAGE IN MESSENGER CHAT UI
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -915,7 +926,6 @@
             renderMessages();
         }
 
-        /* Voice Recording */
         async function toggleVoiceRecord() {
             const micBtn = document.getElementById('micBtn');
 
@@ -953,7 +963,6 @@
             }
         }
 
-        /* Call Tone Sound Generator */
         function playRingtone() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             
@@ -992,53 +1001,73 @@
             document.getElementById('callOverlay').style.display = 'none';
         }
 
-        /* Search User Functionality */
-        function searchAndAddUser() {
+        /* Firebase Online Cross-Device User Search */
+        async function searchAndAddUser() {
             const query = document.getElementById('searchInput').value.trim().toLowerCase();
             if (!query) return;
 
-            registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
+            try {
+                const snapshot = await db.ref('users').once('value');
+                const usersData = snapshot.val();
 
-            const matchedUser = registeredUsers.find(u => 
-                (u.name && u.name.toLowerCase() === query) || 
-                (u.email && u.email.toLowerCase() === query)
-            );
+                if (!usersData) {
+                    alert('No registered users found.');
+                    return;
+                }
 
-            if (!matchedUser) {
-                alert('User not found. Only registered users who logged in can be searched.');
-                return;
+                const userList = Object.values(usersData);
+
+                const matchedUser = userList.find(u => 
+                    (u.name && u.name.toLowerCase().includes(query)) || 
+                    (u.email && u.email.toLowerCase().includes(query))
+                );
+
+                if (!matchedUser) {
+                    alert('User not found. Make sure they have logged in at least once.');
+                    return;
+                }
+
+                if (currentUser && matchedUser.email.toLowerCase() === currentUser.email.toLowerCase()) {
+                    alert('You cannot start a direct message channel with yourself!');
+                    return;
+                }
+
+                const existingChat = chats.find(c => c.email && c.email.toLowerCase() === matchedUser.email.toLowerCase());
+
+                if (existingChat) {
+                    loadChat(existingChat.id);
+                } else {
+                    const newId = 'user_' + Date.now();
+                    const newChat = {
+                        id: newId,
+                        name: matchedUser.name.toUpperCase(),
+                        type: 'direct',
+                        icon: getAvatarUrl(matchedUser),
+                        email: matchedUser.email,
+                        admin: null,
+                        members: []
+                    };
+
+                    chats.push(newChat);
+                    messages[newId] = [{ 
+                        id: 'msg_' + Date.now(), 
+                        sender: 'SYSTEM', 
+                        text: `Direct connection opened with ${matchedUser.name}.`, 
+                        time: 'NOW', 
+                        image: null, 
+                        audio: null 
+                    }];
+
+                    localStorage.setItem('hoodChats', JSON.stringify(chats));
+                    localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
+
+                    loadChat(newId);
+                }
+                document.getElementById('searchInput').value = '';
+            } catch (error) {
+                console.error('Search error:', error);
+                alert('Error connecting to user database.');
             }
-
-            if (currentUser && matchedUser.email.toLowerCase() === currentUser.email.toLowerCase()) {
-                alert('You cannot start a direct message channel with yourself!');
-                return;
-            }
-
-            const existingChat = chats.find(c => c.email && c.email.toLowerCase() === matchedUser.email.toLowerCase());
-
-            if (existingChat) {
-                loadChat(existingChat.id);
-            } else {
-                const newId = 'user_' + Date.now();
-                const newChat = {
-                    id: newId,
-                    name: matchedUser.name.toUpperCase(),
-                    type: 'direct',
-                    icon: getAvatarUrl(matchedUser),
-                    email: matchedUser.email,
-                    admin: null,
-                    members: []
-                };
-
-                chats.push(newChat);
-                messages[newId] = [{ id: 'msg_' + Date.now(), sender: 'SYSTEM', text: `Direct connection opened with ${matchedUser.name}.`, time: 'NOW', image: null, audio: null }];
-
-                localStorage.setItem('hoodChats', JSON.stringify(chats));
-                localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
-
-                loadChat(newId);
-            }
-            document.getElementById('searchInput').value = '';
         }
 
         function openProfileModal() {
@@ -1065,12 +1094,8 @@
             if (newName) currentUser.name = newName;
             currentUser.customPfp = tempCustomPfp;
 
-            registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
-            const userIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
-            if (userIndex !== -1) {
-                registeredUsers[userIndex] = currentUser;
-                localStorage.setItem('hoodRegisteredUsers', JSON.stringify(registeredUsers));
-            }
+            const userIdSanitized = currentUser.email.replace(/[^a-zA-Z0-9]/g, '_');
+            db.ref('users/' + userIdSanitized).set(currentUser);
 
             localStorage.setItem('hoodChatUser', JSON.stringify(currentUser));
             closeModal('profileModal');
