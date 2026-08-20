@@ -1263,37 +1263,46 @@
             }
         }
 
-        function createGroup() {
-            const groupName = document.getElementById('groupNameInput').value.trim();
-            if (!groupName) return alert('Enter group name!');
+    function createGroup() {
+    const groupName = document.getElementById('groupNameInput').value.trim();
+    if (!groupName) return alert('Enter group name!');
 
-            const newId = 'group_' + Date.now();
-            const groupIcon = tempGroupIcon || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(groupName)}`;
+    const newId = 'group_' + Date.now();
+    const groupIcon = tempGroupIcon || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(groupName)}`;
 
-            const groupChat = { 
-                id: newId, 
-                name: groupName.toUpperCase(), 
-                type: 'group', 
-                icon: groupIcon,
-                admin: currentUser.name,
-                members: [currentUser.name]
-            };
+    const groupChat = { 
+        id: newId, 
+        name: groupName.toUpperCase(), 
+        type: 'group', 
+        icon: groupIcon,
+        admin: currentUser.name,
+        members: [currentUser.name]
+    };
 
-            chats.push(groupChat);
+    chats.push(groupChat);
 
-            const myUserKey = sanitizeKey(currentUser.email);
-            db.ref('inboxes/' + myUserKey + '/' + newId).set(groupChat);
+    // Save to current user's inbox in Firebase
+    const myUserKey = sanitizeKey(currentUser.email);
+    db.ref('inboxes/' + myUserKey + '/' + newId).set(groupChat);
 
-            const sysMsg = { id: 'msg_' + Date.now(), sender: 'SYSTEM', text: `Group "${groupName}" initialized by Admin ${currentUser.name}.`, time: 'NOW', image: null, audio: null };
-            db.ref('messages/' + newId + '/' + sysMsg.id).set(sysMsg);
+    // Post initial system creation message
+    const sysMsg = { 
+        id: 'msg_' + Date.now(), 
+        sender: 'SYSTEM', 
+        text: `Group "${groupName}" initialized by Admin ${currentUser.name}.`, 
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 
+        image: null, 
+        audio: null 
+    };
+    db.ref('messages/' + newId + '/' + sysMsg.id).set(sysMsg);
 
-            localStorage.setItem('hoodChats', JSON.stringify(chats));
+    localStorage.setItem('hoodChats', JSON.stringify(chats));
 
-            closeModal('groupModal');
-            document.getElementById('groupNameInput').value = '';
-            listenToMessageThread(newId);
-            loadChat(newId);
-        }
+    closeModal('groupModal');
+    document.getElementById('groupNameInput').value = '';
+    listenToMessageThread(newId);
+    loadChat(newId);
+}
 
         function openAdminModal() {
             const targetChat = chats.find(c => c.id === activeChatId);
@@ -1310,31 +1319,79 @@
             document.getElementById('adminModal').style.display = 'flex';
         }
 
-        function addMember() {
-            const input = document.getElementById('newMemberInput');
-            const newMember = input.value.trim();
-            if (!newMember) return;
+       async function addMember() {
+    const input = document.getElementById('newMemberInput');
+    const newMemberName = input.value.trim();
+    if (!newMemberName) return;
 
-            const targetChat = chats.find(c => c.id === activeChatId);
-            if (!targetChat.members.includes(newMember)) {
-                targetChat.members.push(newMember);
+    const targetChat = chats.find(c => c.id === activeChatId);
+    if (!targetChat) return;
 
-                const sysMsg = {
-                    id: 'msg_' + Date.now(),
-                    sender: 'SYSTEM',
-                    text: `${newMember} was added to the group by Admin.`,
-                    time: 'NOW',
-                    image: null,
-                    audio: null
-                };
-
-                db.ref('messages/' + activeChatId + '/' + sysMsg.id).set(sysMsg);
-
-                localStorage.setItem('hoodChats', JSON.stringify(chats));
-                input.value = '';
-                openAdminModal();
-            }
+    try {
+        // 1. Search Firebase to find the user's email by their nickname
+        const snapshot = await db.ref('users').once('value');
+        const usersData = snapshot.val();
+        
+        if (!usersData) {
+            alert('No users found in database.');
+            return;
         }
+
+        const userList = Object.values(usersData);
+        const addedUser = userList.find(u => u.name && u.name.toLowerCase() === newMemberName.toLowerCase());
+
+        if (!addedUser) {
+            alert('User nickname not found. Ensure they have logged in at least once.');
+            return;
+        }
+
+        // 2. Add member name to group if not already present
+        if (!targetChat.members.includes(addedUser.name)) {
+            targetChat.members.push(addedUser.name);
+        }
+
+        // 3. Write group metadata into the newly added user's inbox
+        const addedUserKey = sanitizeKey(addedUser.email);
+        await db.ref('inboxes/' + addedUserKey + '/' + activeChatId).set({
+            id: targetChat.id,
+            name: targetChat.name,
+            type: 'group',
+            icon: targetChat.icon,
+            admin: targetChat.admin,
+            members: targetChat.members
+        });
+
+        // 4. Update the inbox metadata for all existing group members
+        targetChat.members.forEach(async (member) => {
+            const memberObj = userList.find(u => u.name && u.name.toLowerCase() === member.toLowerCase());
+            if (memberObj) {
+                const memberKey = sanitizeKey(memberObj.email);
+                db.ref('inboxes/' + memberKey + '/' + activeChatId + '/members').set(targetChat.members);
+            }
+        });
+
+        // 5. Send a system message to the chat thread
+        const sysMsg = {
+            id: 'msg_' + Date.now(),
+            sender: 'SYSTEM',
+            text: `${addedUser.name} was added to the group by Admin.`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            image: null,
+            audio: null
+        };
+
+        db.ref('messages/' + activeChatId + '/' + sysMsg.id).set(sysMsg);
+
+        localStorage.setItem('hoodChats', JSON.stringify(chats));
+        input.value = '';
+        openAdminModal();
+        alert(`${addedUser.name} added successfully!`);
+
+    } catch (error) {
+        console.error('Add member error:', error);
+        alert('An error occurred while adding the member.');
+    }
+}
 
         function disbandGroup() {
             if (!confirm('Are you sure you want to disband this group chat?')) return;
