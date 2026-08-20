@@ -8,6 +8,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <!-- Firebase Realtime Database -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     
     <style>
         * {
@@ -668,10 +673,26 @@
     </form>
 
     <script>
+        // FIREBASE INITIALIZATION
+        const firebaseConfig = {
+            apiKey: "AIzaSyAEXBAkQwimPSW-h2mJMvyl5XFgkphy5T8",
+            authDomain: "hoodwebsite-cbf82.firebaseapp.com",
+            databaseURL: "https://hoodwebsite-cbf82-default-rtdb.firebaseio.com",
+            projectId: "hoodwebsite-cbf82",
+            storageBucket: "hoodwebsite-cbf82.firebasestorage.app",
+            messagingSenderId: "754725850199",
+            appId: "1:754725850199:web:697cb6d6e40a2392f0e712",
+            measurementId: "G-VYNYHJ0QZH"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         let currentUser = null;
         let tempCustomPfp = null;
         let tempGroupIcon = null;
         let activeChatId = 'mr_developer';
+        let currentListener = null;
         
         let mediaRecorder = null;
         let audioChunks = [];
@@ -685,11 +706,8 @@
             { id: 'mr_developer', name: 'MR. DEVELOPER', type: 'direct', icon: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=MrDeveloper', email: DEV_EMAIL, admin: null, members: [] }
         ];
 
-        let messages = JSON.parse(localStorage.getItem('hoodMessengerMessages')) || {
-            'mr_developer': [{ id: 'msg_default', sender: 'MR. DEVELOPER', text: 'Hello! Sending a message here will send a direct email to blebleb.biji@gmail.com.', time: '12:00 AM', image: null, audio: null }]
-        };
-
-        let registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
+        let messages = {};
+        let registeredUsers = [];
 
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('hoodChatUser');
@@ -708,18 +726,16 @@
 
             currentUser = { email, name, customPfp: null };
 
-            registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
-            const existingUserIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
-            if (existingUserIndex === -1) {
-                registeredUsers.push(currentUser);
-            } else {
-                registeredUsers[existingUserIndex].name = name;
-            }
-            localStorage.setItem('hoodRegisteredUsers', JSON.stringify(registeredUsers));
+            // Save user to Firebase Users node
+            database.ref('users/' + cleanKey(email)).set(currentUser);
 
             localStorage.setItem('hoodChatUser', JSON.stringify(currentUser));
             document.getElementById('loginModal').style.display = 'none';
             initApp();
+        }
+
+        function cleanKey(str) {
+            return str.replace(/[.#$\[\]]/g, "_");
         }
 
         function getAvatarUrl(userObj) {
@@ -767,7 +783,6 @@
             delete messages[chatId];
 
             localStorage.setItem('hoodChats', JSON.stringify(chats));
-            localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
 
             if (activeChatId === chatId) {
                 activeChatId = 'mr_developer';
@@ -779,6 +794,11 @@
         function loadChat(id) {
             const targetChat = chats.find(c => c.id === id);
             if (!targetChat) return loadChat('mr_developer');
+
+            // Detach previous Firebase listener if changing channels
+            if (currentListener) {
+                database.ref('messages/' + activeChatId).off('value', currentListener);
+            }
 
             activeChatId = id;
             renderChatList();
@@ -793,7 +813,22 @@
                 adminBtn.style.display = 'none';
             }
 
-            renderMessages();
+            // Real-time listener for Firebase Messages
+            const messagesRef = database.ref('messages/' + activeChatId);
+            currentListener = messagesRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                messages[activeChatId] = [];
+
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        messages[activeChatId].push({
+                            id: key,
+                            ...data[key]
+                        });
+                    });
+                }
+                renderMessages();
+            });
         }
 
         function renderMessages() {
@@ -801,7 +836,7 @@
             area.innerHTML = '';
 
             const list = messages[activeChatId] || [];
-            list.forEach((msg, index) => {
+            list.forEach((msg) => {
                 const bubble = document.createElement('div');
                 const isMine = currentUser && msg.sender === currentUser.name;
                 bubble.className = `message-bubble ${isMine ? 'outgoing' : 'incoming'}`;
@@ -809,8 +844,7 @@
                 let imgHtml = msg.image ? `<img src="${msg.image}" class="msg-img">` : '';
                 let audioHtml = msg.audio ? `<audio controls src="${msg.audio}"></audio>` : '';
                 
-                // Show unsend button only on outgoing messages
-                let unsendBtnHtml = isMine ? `<button class="btn-unsend" onclick="unsendMessage(${index})">✕ UNSEND</button>` : '';
+                let unsendBtnHtml = isMine ? `<button class="btn-unsend" onclick="unsendMessage('${msg.id}')">✕ UNSEND</button>` : '';
 
                 bubble.innerHTML = `
                     <div class="msg-header">
@@ -827,14 +861,9 @@
             area.scrollTop = area.scrollHeight;
         }
 
-        function unsendMessage(msgIndex) {
+        function unsendMessage(firebaseMsgId) {
             if (!confirm('Unsend this message?')) return;
-
-            if (messages[activeChatId]) {
-                messages[activeChatId].splice(msgIndex, 1);
-                localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
-                renderMessages();
-            }
+            database.ref(`messages/${activeChatId}/${firebaseMsgId}`).remove();
         }
 
         async function sendMessage() {
@@ -854,7 +883,6 @@
                 minute: '2-digit'
             });
 
-            // SEND MAIL TO DEVELOPER USING FORMSUBMIT
             if (targetChat && targetChat.id === 'mr_developer') {
                 const subject = `HOOD COMM MESSAGE FROM ${currentUser.name}`;
 
@@ -866,25 +894,16 @@
                 try {
                     const form = document.getElementById('developerMailForm');
 
-                    const response = await fetch(form.action, {
+                    await fetch(form.action, {
                         method: 'POST',
                         body: new FormData(form),
-                        headers: {
-                            'Accept': 'application/json'
-                        }
+                        headers: { 'Accept': 'application/json' }
                     });
-
-                    if (response.ok) {
-                        console.log('Developer mail sent successfully!');
-                    } else {
-                        console.error('Developer mail failed to send.');
-                    }
                 } catch (error) {
                     console.error('Mail error:', error);
                 }
             }
 
-            // DISPLAY MESSAGE IN MESSENGER CHAT UI
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -900,19 +919,14 @@
         }
 
         function pushMessage(text, imgData, audioData, timeStr) {
-            if (!messages[activeChatId]) messages[activeChatId] = [];
-
-            messages[activeChatId].push({
-                id: 'msg_' + Date.now(),
+            database.ref('messages/' + activeChatId).push({
                 sender: currentUser.name,
                 text: text || '',
                 time: timeStr,
-                image: imgData,
-                audio: audioData
+                image: imgData || null,
+                audio: audioData || null,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
             });
-
-            localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
-            renderMessages();
         }
 
         /* Voice Recording */
@@ -992,53 +1006,57 @@
             document.getElementById('callOverlay').style.display = 'none';
         }
 
-        /* Search User Functionality */
+        /* Search User Functionality using Firebase */
         function searchAndAddUser() {
             const query = document.getElementById('searchInput').value.trim().toLowerCase();
             if (!query) return;
 
-            registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
+            database.ref('users').once('value', (snapshot) => {
+                const users = snapshot.val();
+                let matchedUser = null;
 
-            const matchedUser = registeredUsers.find(u => 
-                (u.name && u.name.toLowerCase() === query) || 
-                (u.email && u.email.toLowerCase() === query)
-            );
+                if (users) {
+                    Object.keys(users).forEach(k => {
+                        const u = users[k];
+                        if ((u.name && u.name.toLowerCase() === query) || (u.email && u.email.toLowerCase() === query)) {
+                            matchedUser = u;
+                        }
+                    });
+                }
 
-            if (!matchedUser) {
-                alert('User not found. Only registered users who logged in can be searched.');
-                return;
-            }
+                if (!matchedUser) {
+                    alert('User not found. Only users who logged into Firebase can be found.');
+                    return;
+                }
 
-            if (currentUser && matchedUser.email.toLowerCase() === currentUser.email.toLowerCase()) {
-                alert('You cannot start a direct message channel with yourself!');
-                return;
-            }
+                if (currentUser && matchedUser.email.toLowerCase() === currentUser.email.toLowerCase()) {
+                    alert('You cannot start a direct message channel with yourself!');
+                    return;
+                }
 
-            const existingChat = chats.find(c => c.email && c.email.toLowerCase() === matchedUser.email.toLowerCase());
+                const existingChat = chats.find(c => c.email && c.email.toLowerCase() === matchedUser.email.toLowerCase());
 
-            if (existingChat) {
-                loadChat(existingChat.id);
-            } else {
-                const newId = 'user_' + Date.now();
-                const newChat = {
-                    id: newId,
-                    name: matchedUser.name.toUpperCase(),
-                    type: 'direct',
-                    icon: getAvatarUrl(matchedUser),
-                    email: matchedUser.email,
-                    admin: null,
-                    members: []
-                };
+                if (existingChat) {
+                    loadChat(existingChat.id);
+                } else {
+                    const newId = 'dm_' + [cleanKey(currentUser.email), cleanKey(matchedUser.email)].sort().join('_and_');
+                    const newChat = {
+                        id: newId,
+                        name: matchedUser.name.toUpperCase(),
+                        type: 'direct',
+                        icon: getAvatarUrl(matchedUser),
+                        email: matchedUser.email,
+                        admin: null,
+                        members: []
+                    };
 
-                chats.push(newChat);
-                messages[newId] = [{ id: 'msg_' + Date.now(), sender: 'SYSTEM', text: `Direct connection opened with ${matchedUser.name}.`, time: 'NOW', image: null, audio: null }];
+                    chats.push(newChat);
+                    localStorage.setItem('hoodChats', JSON.stringify(chats));
 
-                localStorage.setItem('hoodChats', JSON.stringify(chats));
-                localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
-
-                loadChat(newId);
-            }
-            document.getElementById('searchInput').value = '';
+                    loadChat(newId);
+                }
+                document.getElementById('searchInput').value = '';
+            });
         }
 
         function openProfileModal() {
@@ -1065,12 +1083,7 @@
             if (newName) currentUser.name = newName;
             currentUser.customPfp = tempCustomPfp;
 
-            registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
-            const userIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
-            if (userIndex !== -1) {
-                registeredUsers[userIndex] = currentUser;
-                localStorage.setItem('hoodRegisteredUsers', JSON.stringify(registeredUsers));
-            }
+            database.ref('users/' + cleanKey(currentUser.email)).set(currentUser);
 
             localStorage.setItem('hoodChatUser', JSON.stringify(currentUser));
             closeModal('profileModal');
@@ -1111,10 +1124,7 @@
                 members: [currentUser.name]
             });
 
-            messages[newId] = [{ id: 'msg_' + Date.now(), sender: 'SYSTEM', text: `Group "${groupName}" initialized by Admin ${currentUser.name}.`, time: 'NOW', image: null, audio: null }];
-
             localStorage.setItem('hoodChats', JSON.stringify(chats));
-            localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
 
             closeModal('groupModal');
             document.getElementById('groupNameInput').value = '';
@@ -1144,20 +1154,12 @@
             const targetChat = chats.find(c => c.id === activeChatId);
             if (!targetChat.members.includes(newMember)) {
                 targetChat.members.push(newMember);
-                messages[activeChatId].push({
-                    id: 'msg_' + Date.now(),
-                    sender: 'SYSTEM',
-                    text: `${newMember} was added to the group by Admin.`,
-                    time: 'NOW',
-                    image: null,
-                    audio: null
-                });
+
+                pushMessage(`${newMember} was added to the group by Admin.`, null, null, 'NOW');
 
                 localStorage.setItem('hoodChats', JSON.stringify(chats));
-                localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
                 input.value = '';
                 openAdminModal();
-                renderMessages();
             }
         }
 
@@ -1165,10 +1167,9 @@
             if (!confirm('Are you sure you want to disband this group chat?')) return;
 
             chats = chats.filter(c => c.id !== activeChatId);
-            delete messages[activeChatId];
+            database.ref('messages/' + activeChatId).remove();
 
             localStorage.setItem('hoodChats', JSON.stringify(chats));
-            localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
 
             closeModal('adminModal');
             loadChat('mr_developer');
