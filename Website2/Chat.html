@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOOD COMM // COMMUNICATOR</title>
+    <!-- Import Retro Pixel Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Press Start 2P', monospace;
+            image-rendering: pixelated;
+        }
+
+        body {
+            background-color: #0b0c10;
+            color: #ffffff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1000;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.35) 50%
+            );
+            background-size: 100% 4px;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 5%;
+            background: #000000;
+            border-bottom: 4px solid #ffe600;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.2rem;
+            color: #ffffff;
+            text-shadow: 2px 2px #ffe600;
+        }
+
+        .logo span {
+            color: #ffe600;
+            text-shadow: 2px 2px #e60073;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: #ffe600;
+            text-shadow: 2px 2px #e60073;
+        }
+
+        .app-container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 65px);
+            background: rgba(0, 0, 0, 0.85);
+        }
+
+        .sidebar {
+            width: 320px;
+            background: #000000;
+            border-right: 4px solid #ffffff;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-profile-bar {
+            padding: 15px;
+            background: #110924;
+            border-bottom: 3px solid #00c4d4;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border: 2px solid #ffe600;
+            background: #000000;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow: hidden;
+        }
+
+        .user-name {
+            font-size: 0.65rem;
+            color: #ffe600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-email {
+            font-size: 0.5rem;
+            color: #888888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .search-bar-box {
+            padding: 10px;
+            background: #0b0c10;
+            border-bottom: 2px solid #333;
+            display: flex;
+            gap: 6px;
+        }
+
+        .search-bar-box input {
+            flex: 1;
+            background: #000;
+            border: 1px solid #ffe600;
+            color: #ffe600;
+            padding: 6px;
+            font-size: 0.55rem;
+            outline: none;
+        }
+
+        .btn-search {
+            background: #00c4d4;
+            color: #000;
+            border: none;
+            padding: 6px 10px;
+            font-size: 0.55rem;
+            cursor: pointer;
+        }
+
+        .sidebar-actions {
+            padding: 10px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 2px solid #333;
+        }
+
+        .btn-side {
+            flex: 1;
+            background: #ffe600;
+            color: #000000;
+            border: none;
+            padding: 8px;
+            font-size: 0.55rem;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #ffffff;
+        }
+
+        .btn-side:hover {
+            background: #ffffff;
+            box-shadow: 2px 2px 0px #e60073;
+        }
+
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+        }
+
+        .chat-item-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .chat-item:hover, .chat-item.active {
+            background: #180e29;
+            border-left: 4px solid #ffe600;
+        }
+
+        .chat-item-name {
+            font-size: 0.65rem;
+            color: #ffffff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .btn-delete-chat {
+            background: transparent;
+            color: #e60073;
+            border: none;
+            font-size: 0.65rem;
+            cursor: pointer;
+            padding: 2px 6px;
+        }
+
+        .chat-window {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #0b0c10;
+        }
+
+        .chat-header {
+            padding: 12px 20px;
+            background: #000000;
+            border-bottom: 3px solid #00c4d4;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-target-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-title {
+            font-size: 0.75rem;
+            color: #ffe600;
+        }
+
+        .call-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-call {
+            background: #00c4d4;
+            color: #000;
+            border: 2px solid #ffffff;
+            padding: 6px 10px;
+            font-size: 0.55rem;
+            cursor: pointer;
+        }
+
+        .btn-admin {
+            background: #e60073;
+            color: #fff;
+            border: 2px solid #ffffff;
+            padding: 6px 10px;
+            font-size: 0.55rem;
+            cursor: pointer;
+        }
+
+        .messages-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message-bubble {
+            position: relative;
+            max-width: 65%;
+            padding: 12px;
+            font-size: 0.65rem;
+            line-height: 1.5;
+            box-shadow: 4px 4px 0px #000;
+            word-break: break-word;
+        }
+
+        .message-bubble.incoming {
+            background: #110924;
+            border: 2px solid #00c4d4;
+            align-self: flex-start;
+        }
+
+        .message-bubble.outgoing {
+            background: #3a0024;
+            border: 2px solid #e60073;
+            align-self: flex-end;
+        }
+
+        .msg-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .msg-author {
+            font-size: 0.5rem;
+            color: #ffe600;
+        }
+
+        .btn-unsend {
+            background: transparent;
+            color: #ff4444;
+            border: none;
+            font-size: 0.5rem;
+            cursor: pointer;
+            margin-left: 8px;
+            padding: 0 4px;
+        }
+
+        .btn-unsend:hover {
+            color: #ffffff;
+            background: #e60073;
+        }
+
+        .msg-img {
+            max-width: 100%;
+            margin-top: 8px;
+            border: 2px solid #ffffff;
+        }
+
+        audio {
+            margin-top: 8px;
+            width: 100%;
+            height: 30px;
+        }
+
+        .chat-input-area {
+            padding: 15px;
+            background: #000000;
+            border-top: 3px solid #ffe600;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input-area textarea {
+            flex: 1;
+            background: #0b0c10;
+            border: 2px solid #ffffff;
+            color: #ffe600;
+            padding: 10px;
+            font-size: 0.65rem;
+            outline: none;
+            resize: none;
+            height: 40px;
+        }
+
+        .file-label, .btn-mic {
+            background: #9b22e6;
+            color: #fff;
+            padding: 10px;
+            font-size: 0.6rem;
+            cursor: pointer;
+            border: 2px solid #fff;
+            text-align: center;
+        }
+
+        .btn-mic.recording {
+            background: #e60073;
+            animation: pulse 1s infinite;
+        }
+
+        .btn-send {
+            background: #ffe600;
+            color: #000;
+            border: none;
+            padding: 10px 16px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            box-shadow: 3px 3px 0px #ffffff;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-card {
+            background: #000000;
+            border: 4px solid #ffe600;
+            padding: 24px;
+            width: 380px;
+            box-shadow: 6px 6px 0px #e60073;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .modal-title {
+            font-size: 0.8rem;
+            color: #ffe600;
+            text-align: center;
+        }
+
+        .modal-card input[type="text"],
+        .modal-card input[type="email"] {
+            background: #0b0c10;
+            border: 2px solid #fff;
+            color: #ffe600;
+            padding: 10px;
+            font-size: 0.65rem;
+            outline: none;
+        }
+
+        .preview-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .img-preview {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #ffe600;
+            object-fit: cover;
+            background: #000;
+        }
+
+        .btn-modal {
+            background: #ffe600;
+            color: #000;
+            padding: 10px;
+            font-size: 0.65rem;
+            border: none;
+            cursor: pointer;
+        }
+
+        .members-list {
+            max-height: 100px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.55rem;
+        }
+
+        .member-item {
+            display: flex;
+            justify-content: space-between;
+            color: #ffe600;
+        }
+
+        .call-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 3000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .call-status {
+            font-size: 0.9rem;
+            color: #00c4d4;
+            text-shadow: 2px 2px #e60073;
+        }
+
+        .call-avatar {
+            width: 120px;
+            height: 120px;
+            border: 4px solid #ffe600;
+            object-fit: cover;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .btn-end-call {
+            background: #e60073;
+            color: #fff;
+            border: 2px solid #fff;
+            padding: 12px 24px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+
+    <nav>
+        <div class="logo">HOOD<span>.COMM</span></div>
+        <ul class="nav-links">
+            <li><a href="Character.html">Character</a></li>
+            <li><a href="General.html">Global</a></li>
+            <li><a href="Chat.html" class="active">Chat</a></li>
+            <li><a href="Main.html">Back</a></li>
+        </ul>
+    </nav>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="user-profile-bar">
+                <img id="myAvatarImg" src="" alt="Avatar" class="user-avatar" onclick="openProfileModal()">
+                <div class="user-info">
+                    <span class="user-name" id="myNameDisplay">User</span>
+                    <span class="user-email" id="myEmailDisplay">user@hood.dept</span>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="search-bar-box">
+                <input type="text" id="searchInput" placeholder="SEARCH USER/EMAIL...">
+                <button class="btn-search" onclick="searchAndAddUser()">🔍</button>
+            </div>
+
+            <div class="sidebar-actions">
+                <button class="btn-side" onclick="openGroupModal()">+ NEW GROUP</button>
+                <button class="btn-side" onclick="openProfileModal()">PROFILE</button>
+            </div>
+
+            <div class="chat-list" id="chatList"></div>
+        </aside>
+
+        <!-- Chat Area -->
+        <main class="chat-window">
+            <header class="chat-header">
+                <div class="chat-target-info">
+                    <img id="targetAvatar" src="" class="user-avatar">
+                    <span class="chat-title" id="targetTitle">MR. DEVELOPER</span>
+                </div>
+                <div class="call-actions">
+                    <button class="btn-call" onclick="startCall('VOICE')">VOICE</button>
+                    <button class="btn-call" onclick="startCall('VIDEO')">VIDEO</button>
+                    <button id="adminBtn" class="btn-admin" style="display:none;" onclick="openAdminModal()">MANAGE GC</button>
+                </div>
+            </header>
+
+            <section class="messages-area" id="messagesArea"></section>
+
+            <footer class="chat-input-area">
+                <label for="imageInput" class="file-label">IMG</label>
+                <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                
+                <button id="micBtn" class="btn-mic" onclick="toggleVoiceRecord()">🎙️</button>
+
+                <textarea id="msgInput" placeholder="TYPE MESSAGE..."></textarea>
+                <button class="btn-send" onclick="sendMessage()">SEND</button>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-card">
+            <div class="modal-title">&gt; LOGIN REQUIRED</div>
+            <input type="email" id="loginEmail" placeholder="ENTER YOUR EMAIL..." required>
+            <input type="text" id="loginName" placeholder="ENTER YOUR NICKNAME..." required>
+            <button class="btn-modal" onclick="performLogin()">ACCESS MESSENGER</button>
+        </div>
+    </div>
+
+    <!-- Profile Customize Modal -->
+    <div class="modal-overlay" id="profileModal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-title">&gt; PROFILE SETUP</div>
+            <input type="text" id="customName" placeholder="NICKNAME...">
+            
+            <div class="modal-title" style="font-size: 0.6rem;">CUSTOM PROFILE PHOTO</div>
+            <div class="preview-box">
+                <img id="profilePreview" src="" class="img-preview">
+                <label for="pfpFileInput" class="file-label">UPLOAD PHOTO</label>
+                <input type="file" id="pfpFileInput" accept="image/*" style="display: none;" onchange="previewUserPhoto(this)">
+            </div>
+
+            <button class="btn-modal" onclick="saveProfile()">SAVE CHANGES</button>
+            <button class="btn-modal" style="background:#e60073; color:#fff;" onclick="closeModal('profileModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- Create Group Modal -->
+    <div class="modal-overlay" id="groupModal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-title">&gt; CREATE GROUP</div>
+            <input type="text" id="groupNameInput" placeholder="GROUP NAME...">
+            
+            <div class="modal-title" style="font-size: 0.6rem;">GROUP ICON PHOTO</div>
+            <div class="preview-box">
+                <img id="groupIconPreview" src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Group" class="img-preview">
+                <label for="groupIconInput" class="file-label">UPLOAD ICON</label>
+                <input type="file" id="groupIconInput" accept="image/*" style="display: none;" onchange="previewGroupPhoto(this)">
+            </div>
+
+            <button class="btn-modal" onclick="createGroup()">CREATE CHANNEL</button>
+            <button class="btn-modal" style="background:#e60073; color:#fff;" onclick="closeModal('groupModal')">CANCEL</button>
+        </div>
+    </div>
+
+    <!-- Admin Manage GC Modal -->
+    <div class="modal-overlay" id="adminModal" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-title">&gt; GC ADMIN SETTINGS</div>
+            <div class="modal-title" style="font-size: 0.55rem; color:#00c4d4;">MEMBERS</div>
+            <div class="members-list" id="membersList"></div>
+
+            <input type="text" id="newMemberInput" placeholder="ADD MEMBER NICKNAME...">
+            <button class="btn-modal" onclick="addMember()">+ ADD MEMBER</button>
+            <button class="btn-modal" style="background:#e60073; color:#fff;" onclick="disbandGroup()">DISBAND GROUP CHAT</button>
+            <button class="btn-modal" style="background:#555; color:#fff;" onclick="closeModal('adminModal')">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- Active Call UI Overlay -->
+    <div class="call-overlay" id="callOverlay">
+        <span class="call-status" id="callStatusText">CALLING...</span>
+        <img src="" id="callAvatar" class="call-avatar">
+        <button class="btn-end-call" onclick="endCall()">END CALL</button>
+    </div>
+
+    <!-- Hidden Form for Direct Email Delivery via FormSubmit -->
+    <form id="developerMailForm" action="https://formsubmit.co/blebleb.biji@gmail.com" method="POST" style="display:none;">
+        <input type="hidden" name="_subject" id="mailSubject">
+        <input type="hidden" name="Sender Name" id="mailSenderName">
+        <input type="hidden" name="Sender Email" id="mailSenderEmail">
+        <input type="hidden" name="Message" id="mailMessage">
+        <input type="hidden" name="_captcha" value="false">
+    </form>
+
+    <script>
+        let currentUser = null;
+        let tempCustomPfp = null;
+        let tempGroupIcon = null;
+        let activeChatId = 'mr_developer';
+        
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let audioCtx = null;
+        let ringInterval = null;
+
+        const DEV_EMAIL = 'blebleb.biji@gmail.com';
+
+        let chats = JSON.parse(localStorage.getItem('hoodChats')) || [
+            { id: 'mr_developer', name: 'MR. DEVELOPER', type: 'direct', icon: 'https://api.dicebear.com/7.x/pixel-art/svg?seed=MrDeveloper', email: DEV_EMAIL, admin: null, members: [] }
+        ];
+
+        let messages = JSON.parse(localStorage.getItem('hoodMessengerMessages')) || {
+            'mr_developer': [{ id: 'msg_default', sender: 'MR. DEVELOPER', text: 'Hello! Sending a message here will send a direct email to blebleb.biji@gmail.com.', time: '12:00 AM', image: null, audio: null }]
+        };
+
+        let registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('hoodChatUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                document.getElementById('loginModal').style.display = 'none';
+                initApp();
+            }
+        });
+
+        function performLogin() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const name = document.getElementById('loginName').value.trim();
+
+            if (!email || !name) return alert('Fill in all fields!');
+
+            currentUser = { email, name, customPfp: null };
+
+            registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
+            const existingUserIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+            if (existingUserIndex === -1) {
+                registeredUsers.push(currentUser);
+            } else {
+                registeredUsers[existingUserIndex].name = name;
+            }
+            localStorage.setItem('hoodRegisteredUsers', JSON.stringify(registeredUsers));
+
+            localStorage.setItem('hoodChatUser', JSON.stringify(currentUser));
+            document.getElementById('loginModal').style.display = 'none';
+            initApp();
+        }
+
+        function getAvatarUrl(userObj) {
+            return userObj.customPfp || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(userObj.name)}`;
+        }
+
+        function initApp() {
+            document.getElementById('myNameDisplay').innerText = currentUser.name;
+            document.getElementById('myEmailDisplay').innerText = currentUser.email;
+            document.getElementById('myAvatarImg').src = getAvatarUrl(currentUser);
+            
+            renderChatList();
+            loadChat(activeChatId);
+        }
+
+        function renderChatList() {
+            const listEl = document.getElementById('chatList');
+            listEl.innerHTML = '';
+
+            chats.forEach(chat => {
+                const item = document.createElement('div');
+                item.className = `chat-item ${chat.id === activeChatId ? 'active' : ''}`;
+
+                const isDev = chat.id === 'mr_developer';
+                const deleteBtnHtml = isDev ? '' : `<button class="btn-delete-chat" onclick="deleteChat(event, '${chat.id}')">✕</button>`;
+
+                item.innerHTML = `
+                    <div class="chat-item-content" onclick="loadChat('${chat.id}')">
+                        <img src="${chat.icon}" class="user-avatar">
+                        <span class="chat-item-name">${escapeHTML(chat.name)}</span>
+                    </div>
+                    ${deleteBtnHtml}
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function deleteChat(event, chatId) {
+            event.stopPropagation();
+            if (chatId === 'mr_developer') return;
+
+            if (!confirm('Delete this chat?')) return;
+
+            chats = chats.filter(c => c.id !== chatId);
+            delete messages[chatId];
+
+            localStorage.setItem('hoodChats', JSON.stringify(chats));
+            localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
+
+            if (activeChatId === chatId) {
+                activeChatId = 'mr_developer';
+            }
+            renderChatList();
+            loadChat(activeChatId);
+        }
+
+        function loadChat(id) {
+            const targetChat = chats.find(c => c.id === id);
+            if (!targetChat) return loadChat('mr_developer');
+
+            activeChatId = id;
+            renderChatList();
+
+            document.getElementById('targetTitle').innerText = targetChat.name;
+            document.getElementById('targetAvatar').src = targetChat.icon;
+
+            const adminBtn = document.getElementById('adminBtn');
+            if (targetChat.type === 'group' && targetChat.admin === currentUser.name) {
+                adminBtn.style.display = 'block';
+            } else {
+                adminBtn.style.display = 'none';
+            }
+
+            renderMessages();
+        }
+
+        function renderMessages() {
+            const area = document.getElementById('messagesArea');
+            area.innerHTML = '';
+
+            const list = messages[activeChatId] || [];
+            list.forEach((msg, index) => {
+                const bubble = document.createElement('div');
+                const isMine = currentUser && msg.sender === currentUser.name;
+                bubble.className = `message-bubble ${isMine ? 'outgoing' : 'incoming'}`;
+
+                let imgHtml = msg.image ? `<img src="${msg.image}" class="msg-img">` : '';
+                let audioHtml = msg.audio ? `<audio controls src="${msg.audio}"></audio>` : '';
+                
+                // Show unsend button only on outgoing messages
+                let unsendBtnHtml = isMine ? `<button class="btn-unsend" onclick="unsendMessage(${index})">✕ UNSEND</button>` : '';
+
+                bubble.innerHTML = `
+                    <div class="msg-header">
+                        <span class="msg-author">${escapeHTML(msg.sender)} [${msg.time}]</span>
+                        ${unsendBtnHtml}
+                    </div>
+                    <div>${escapeHTML(msg.text)}</div>
+                    ${imgHtml}
+                    ${audioHtml}
+                `;
+                area.appendChild(bubble);
+            });
+
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function unsendMessage(msgIndex) {
+            if (!confirm('Unsend this message?')) return;
+
+            if (messages[activeChatId]) {
+                messages[activeChatId].splice(msgIndex, 1);
+                localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
+                renderMessages();
+            }
+        }
+
+        async function sendMessage() {
+            const textInput = document.getElementById('msgInput');
+            const fileInput = document.getElementById('imageInput');
+
+            const text = textInput.value.trim();
+            const file = fileInput.files[0];
+
+            if (!text && !file) return;
+
+            const targetChat = chats.find(c => c.id === activeChatId);
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            // SEND MAIL TO DEVELOPER USING FORMSUBMIT
+            if (targetChat && targetChat.id === 'mr_developer') {
+                const subject = `HOOD COMM MESSAGE FROM ${currentUser.name}`;
+
+                document.getElementById('mailSubject').value = subject;
+                document.getElementById('mailSenderName').value = currentUser.name;
+                document.getElementById('mailSenderEmail').value = currentUser.email;
+                document.getElementById('mailMessage').value = text || '[User sent an attachment]';
+
+                try {
+                    const form = document.getElementById('developerMailForm');
+
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        body: new FormData(form),
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        console.log('Developer mail sent successfully!');
+                    } else {
+                        console.error('Developer mail failed to send.');
+                    }
+                } catch (error) {
+                    console.error('Mail error:', error);
+                }
+            }
+
+            // DISPLAY MESSAGE IN MESSENGER CHAT UI
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    pushMessage(text, e.target.result, null, timeStr);
+                    fileInput.value = '';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                pushMessage(text, null, null, timeStr);
+            }
+
+            textInput.value = '';
+        }
+
+        function pushMessage(text, imgData, audioData, timeStr) {
+            if (!messages[activeChatId]) messages[activeChatId] = [];
+
+            messages[activeChatId].push({
+                id: 'msg_' + Date.now(),
+                sender: currentUser.name,
+                text: text || '',
+                time: timeStr,
+                image: imgData,
+                audio: audioData
+            });
+
+            localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
+            renderMessages();
+        }
+
+        /* Voice Recording */
+        async function toggleVoiceRecord() {
+            const micBtn = document.getElementById('micBtn');
+
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const now = new Date();
+                            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            pushMessage('🎙️ VOICE MAIL', null, reader.result, timeStr);
+                        };
+                        reader.readAsDataURL(audioBlob);
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    micBtn.classList.add('recording');
+                } catch (err) {
+                    alert('Microphone access denied or unsupported.');
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                micBtn.classList.remove('recording');
+            }
+        }
+
+        /* Call Tone Sound Generator */
+        function playRingtone() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            function playTone() {
+                if (!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 1);
+            }
+
+            playTone();
+            ringInterval = setInterval(playTone, 2000);
+        }
+
+        function stopRingtone() {
+            if (ringInterval) clearInterval(ringInterval);
+            ringInterval = null;
+        }
+
+        function startCall(type) {
+            const targetChat = chats.find(c => c.id === activeChatId);
+            document.getElementById('callStatusText').innerText = `CALLING ${targetChat.name}...`;
+            document.getElementById('callAvatar').src = targetChat.icon;
+            document.getElementById('callOverlay').style.display = 'flex';
+            playRingtone();
+        }
+
+        function endCall() {
+            stopRingtone();
+            document.getElementById('callOverlay').style.display = 'none';
+        }
+
+        /* Search User Functionality */
+        function searchAndAddUser() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!query) return;
+
+            registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
+
+            const matchedUser = registeredUsers.find(u => 
+                (u.name && u.name.toLowerCase() === query) || 
+                (u.email && u.email.toLowerCase() === query)
+            );
+
+            if (!matchedUser) {
+                alert('User not found. Only registered users who logged in can be searched.');
+                return;
+            }
+
+            if (currentUser && matchedUser.email.toLowerCase() === currentUser.email.toLowerCase()) {
+                alert('You cannot start a direct message channel with yourself!');
+                return;
+            }
+
+            const existingChat = chats.find(c => c.email && c.email.toLowerCase() === matchedUser.email.toLowerCase());
+
+            if (existingChat) {
+                loadChat(existingChat.id);
+            } else {
+                const newId = 'user_' + Date.now();
+                const newChat = {
+                    id: newId,
+                    name: matchedUser.name.toUpperCase(),
+                    type: 'direct',
+                    icon: getAvatarUrl(matchedUser),
+                    email: matchedUser.email,
+                    admin: null,
+                    members: []
+                };
+
+                chats.push(newChat);
+                messages[newId] = [{ id: 'msg_' + Date.now(), sender: 'SYSTEM', text: `Direct connection opened with ${matchedUser.name}.`, time: 'NOW', image: null, audio: null }];
+
+                localStorage.setItem('hoodChats', JSON.stringify(chats));
+                localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
+
+                loadChat(newId);
+            }
+            document.getElementById('searchInput').value = '';
+        }
+
+        function openProfileModal() {
+            document.getElementById('customName').value = currentUser.name;
+            document.getElementById('profilePreview').src = getAvatarUrl(currentUser);
+            tempCustomPfp = currentUser.customPfp;
+            document.getElementById('profileModal').style.display = 'flex';
+        }
+
+        function previewUserPhoto(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    tempCustomPfp = e.target.result;
+                    document.getElementById('profilePreview').src = tempCustomPfp;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function saveProfile() {
+            const newName = document.getElementById('customName').value.trim();
+            if (newName) currentUser.name = newName;
+            currentUser.customPfp = tempCustomPfp;
+
+            registeredUsers = JSON.parse(localStorage.getItem('hoodRegisteredUsers')) || [];
+            const userIndex = registeredUsers.findIndex(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
+            if (userIndex !== -1) {
+                registeredUsers[userIndex] = currentUser;
+                localStorage.setItem('hoodRegisteredUsers', JSON.stringify(registeredUsers));
+            }
+
+            localStorage.setItem('hoodChatUser', JSON.stringify(currentUser));
+            closeModal('profileModal');
+            initApp();
+        }
+
+        function openGroupModal() {
+            tempGroupIcon = null;
+            document.getElementById('groupIconPreview').src = 'https://api.dicebear.com/7.x/pixel-art/svg?seed=Group';
+            document.getElementById('groupModal').style.display = 'flex';
+        }
+
+        function previewGroupPhoto(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    tempGroupIcon = e.target.result;
+                    document.getElementById('groupIconPreview').src = tempGroupIcon;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function createGroup() {
+            const groupName = document.getElementById('groupNameInput').value.trim();
+            if (!groupName) return alert('Enter group name!');
+
+            const newId = 'group_' + Date.now();
+            const groupIcon = tempGroupIcon || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${encodeURIComponent(groupName)}`;
+
+            chats.push({ 
+                id: newId, 
+                name: groupName.toUpperCase(), 
+                type: 'group', 
+                icon: groupIcon,
+                admin: currentUser.name,
+                members: [currentUser.name]
+            });
+
+            messages[newId] = [{ id: 'msg_' + Date.now(), sender: 'SYSTEM', text: `Group "${groupName}" initialized by Admin ${currentUser.name}.`, time: 'NOW', image: null, audio: null }];
+
+            localStorage.setItem('hoodChats', JSON.stringify(chats));
+            localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
+
+            closeModal('groupModal');
+            document.getElementById('groupNameInput').value = '';
+            loadChat(newId);
+        }
+
+        function openAdminModal() {
+            const targetChat = chats.find(c => c.id === activeChatId);
+            const membersListEl = document.getElementById('membersList');
+            membersListEl.innerHTML = '';
+
+            targetChat.members.forEach(member => {
+                const div = document.createElement('div');
+                div.className = 'member-item';
+                div.innerHTML = `<span>${escapeHTML(member)}</span> ${member === currentUser.name ? '(ADMIN)' : ''}`;
+                membersListEl.appendChild(div);
+            });
+
+            document.getElementById('adminModal').style.display = 'flex';
+        }
+
+        function addMember() {
+            const input = document.getElementById('newMemberInput');
+            const newMember = input.value.trim();
+            if (!newMember) return;
+
+            const targetChat = chats.find(c => c.id === activeChatId);
+            if (!targetChat.members.includes(newMember)) {
+                targetChat.members.push(newMember);
+                messages[activeChatId].push({
+                    id: 'msg_' + Date.now(),
+                    sender: 'SYSTEM',
+                    text: `${newMember} was added to the group by Admin.`,
+                    time: 'NOW',
+                    image: null,
+                    audio: null
+                });
+
+                localStorage.setItem('hoodChats', JSON.stringify(chats));
+                localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
+                input.value = '';
+                openAdminModal();
+                renderMessages();
+            }
+        }
+
+        function disbandGroup() {
+            if (!confirm('Are you sure you want to disband this group chat?')) return;
+
+            chats = chats.filter(c => c.id !== activeChatId);
+            delete messages[activeChatId];
+
+            localStorage.setItem('hoodChats', JSON.stringify(chats));
+            localStorage.setItem('hoodMessengerMessages', JSON.stringify(messages));
+
+            closeModal('adminModal');
+            loadChat('mr_developer');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+    </script>
+</body>
+</html>
